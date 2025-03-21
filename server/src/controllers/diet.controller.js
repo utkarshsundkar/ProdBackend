@@ -13,17 +13,27 @@ const dietRegister = asyncHandler(async (req, res) => {
     throw new ApiError(400, "diet type and fitness goal is required");
   }
 
-  // const user = await User.aggregate([
-  //   {
-  //     $match : {
-  //       _id : new mongoose.Types.ObjectId(req.user?._id)
-  //     }
-  //   }
-  // ])
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user?._id),
+      },
+    },
+  ]);
 
-  const user = await User.findById(req.user?._id);
   if (!user) {
     throw new ApiError(404, "User not found");
+  }
+
+  const existingDiet = await Diet.findOne({ owner: req.user?._id });
+
+  // console.log(existingDiet)
+
+  if (existingDiet) {
+    throw new ApiError(
+      400,
+      "You already have an active diet. Update it instead."
+    );
   }
 
   const diet = await Diet.create({
@@ -39,8 +49,60 @@ const dietRegister = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, diet, "diet added Successfully"));
 });
 
-const dietupdate = asyncHandler(async(req,res)=> {
-  
-})
+const getCurrentDiet = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
 
-export { dietRegister };
+  // console.log(userId)
+
+  if (!userId) {
+    throw new ApiError(500, "user id not found");
+  }
+
+  const diet = {};
+  diet.owner = userId;
+
+  const userDiet = await Diet.find(diet);
+
+  // console.log(diet)
+  // console.log(userDiet)
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, userDiet, "diet fetched successfully"));
+});
+
+const dietupdate = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const {newDietType, newFitnessgoal} = req.body;
+
+  if (!(newDietType || newFitnessgoal)) {
+    throw new ApiError(500, "new diet type and new fitness goal is required");
+  }
+
+  // console.log({newDietType,newFitnessgoal})
+
+  const updatedDiet = await Diet.findByIdAndUpdate(
+    {
+      _id: userId,
+    },
+    {
+      dietType: newDietType,
+      fitnessGoal: newFitnessgoal,
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  console.log(updatedDiet)
+
+  if (!updatedDiet) {
+    throw new ApiError(404, "updated diet not found");
+  }
+
+  return res.status(200).json(new ApiResponse(200, updatedDiet, "diet updated"));
+
+});
+
+export { dietRegister, getCurrentDiet, dietupdate };
