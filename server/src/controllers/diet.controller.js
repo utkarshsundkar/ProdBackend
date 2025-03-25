@@ -73,21 +73,21 @@ const getCurrentDiet = asyncHandler(async (req, res) => {
 
 const dietupdate = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const {newDietType, newFitnessgoal} = req.body;
+  const {dietType, fitnessGoal} = req.body;
 
-  if (!(newDietType || newFitnessgoal)) {
+  if (!(dietType || fitnessGoal)) {
     throw new ApiError(500, "new diet type and new fitness goal is required");
   }
 
-  // console.log({newDietType,newFitnessgoal})
+  console.log({dietType,fitnessGoal})
 
   const updatedDiet = await Diet.findByIdAndUpdate(
     {
       _id: userId,
     },
     {
-      dietType: newDietType,
-      fitnessGoal: newFitnessgoal,
+      dietType,
+      fitnessGoal
     },
     {
       new: true,
