@@ -118,7 +118,7 @@ const loginUser = asyncHandler(async (req, res) => {
     secure: true,
   };
 
-  console.log('loggedInUser' , loggedInUser)
+  // console.log('loggedInUser' , loggedInUser)
 
   return res
     .status(200)

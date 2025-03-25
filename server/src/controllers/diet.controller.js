@@ -9,9 +9,10 @@ const dietRegister = asyncHandler(async (req, res) => {
   const { dietType, fitnessGoal } = req.body;
   // console.log({dietType , fitnessGoal})
 
-  if (!(dietType || fitnessGoal)) {
-    throw new ApiError(400, "diet type and fitness goal is required");
+  if (!dietType || !fitnessGoal) {
+    throw new ApiError(400, "Diet type and fitness goal are required");
   }
+  
 
   const user = await User.aggregate([
     {
@@ -24,7 +25,7 @@ const dietRegister = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(404, "User not found");
   }
-
+  
   const existingDiet = await Diet.findOne({ owner: req.user?._id });
 
   // console.log(existingDiet)
@@ -75,15 +76,19 @@ const dietupdate = asyncHandler(async (req, res) => {
   const { userId } = req.params;
   const {dietType, fitnessGoal} = req.body;
 
-  if (!(dietType || fitnessGoal)) {
+  if (!dietType || !fitnessGoal) {
     throw new ApiError(500, "new diet type and new fitness goal is required");
   }
 
-  console.log({dietType,fitnessGoal})
+  const oldDiet = await Diet.findOne({ owner: userId});
+
+  // console.log("old diet : ",oldDiet._id)
+
+  // console.log({dietType,fitnessGoal})
 
   const updatedDiet = await Diet.findByIdAndUpdate(
     {
-      _id: userId,
+      _id: oldDiet._id,
     },
     {
       dietType,
