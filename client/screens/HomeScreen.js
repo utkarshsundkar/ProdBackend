@@ -1,19 +1,16 @@
 import React, { useContext } from "react";
-import { View, Text, Button, StyleSheet } from "react-native";
-import { AuthContext } from "../context/AuthContext";
+import { View, Button, Text } from "react-native";
+import AuthContext from "../context/AuthContext.js";
 
-export default function HomeScreen() {
-  const { logout } = useContext(AuthContext);
+const HomeScreen = () => {
+  const { logout, user } = useContext(AuthContext);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to the App</Text>
+    <View>
+      <Text>Welcome, {user?.fullName || "User"}!</Text>
       <Button title="Logout" onPress={logout} />
     </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
-});
+export default HomeScreen;

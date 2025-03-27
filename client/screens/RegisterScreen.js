@@ -1,65 +1,42 @@
-import React, {useState, useContext} from 'react';
-import {View, Text, TextInput, Button, StyleSheet} from 'react-native';
-import {AuthContext} from '../context/AuthContext.js';
+import React, { useState, useContext } from "react";
+import { View, TextInput, Button, Text } from "react-native";
+import AuthContext from "../context/AuthContext.js";
 
-export default function RegisterScreen({navigation}) {
-  const {register} = useContext(AuthContext);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
-  const [fullName, setfullName] = useState('');
+const RegisterScreen = ({ navigation }) => {
+  const { register } = useContext(AuthContext);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleRegister = async () => {
+    try {
+      await register(fullName, email, password);
+    } catch (error) {
+      console.error("Registration failed", error.response?.data?.message);
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Register</Text>
-      <Text>Email</Text>
+    <View>
       <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-      />
-      <Text>Username</Text>
-      <TextInput
-        placeholder="username"
-        value={username}
-        onChangeText={setUsername}
-        style={styles.input}
-      />
-      <Text>fullname</Text>
-      <TextInput
-        placeholder="fullName"
+        placeholder="Full Name"
+        onChangeText={setFullName}
         value={fullName}
-        onChangeText={setfullName}
-        style={styles.input}
       />
-      <Text>Password</Text>
+      <TextInput placeholder="Email" onChangeText={setEmail} value={email} />
       <TextInput
         placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
         secureTextEntry
-        style={styles.input}
+        onChangeText={setPassword}
+        value={password}
       />
+      <Button title="Register" onPress={handleRegister} />
       <Button
-        title="Register"
-        onPress={() => register(email, username, fullName, password)}
+        title="Already have an account? Login"
+        onPress={() => navigation.navigate("Login")}
       />
-      <Text onPress={() => navigation.navigate('Login')} style={styles.link}>
-        Already have an account? Login
-      </Text>
     </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {flex: 1, justifyContent: 'center', padding: 20},
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {borderWidth: 1, padding: 10, marginVertical: 10, borderRadius: 5},
-  link: {marginTop: 10, color: 'blue', textAlign: 'center'},
-});
+export default RegisterScreen;

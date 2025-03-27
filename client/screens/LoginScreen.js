@@ -1,45 +1,36 @@
-import React, {useState, useContext} from 'react';
-import {View, Text, TextInput, Button, StyleSheet} from 'react-native';
-import {AuthContext} from '../context/AuthContext.js';
+import React, { useState, useContext } from "react";
+import { View, TextInput, Button, Text } from "react-native";
+import AuthContext from "../context/AuthContext.js";
 
-export default function LoginScreen({navigation}) {
-  const {login} = useContext(AuthContext);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const LoginScreen = ({ navigation }) => {
+  const { login } = useContext(AuthContext);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = async () => {
+    try {
+      await login(email, password);
+    } catch (error) {
+      console.error("Login failed", error.response?.data?.message);
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-      />
+    <View>
+      <TextInput placeholder="Email" onChangeText={setEmail} value={email} />
       <TextInput
         placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
         secureTextEntry
-        style={styles.input}
+        onChangeText={setPassword}
+        value={password}
       />
-
-      <Button title="Login" onPress={() => login(email, password)} />
-      <Text onPress={() => navigation.navigate('Register')} style={styles.link}>
-        Don't have an account? Register
-      </Text>
+      <Button title="Login" onPress={handleLogin} />
+      <Button
+        title="Don't have an account? Register"
+        onPress={() => navigation.navigate("Register")}
+      />
     </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {flex: 1, justifyContent: 'center', padding: 20},
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {borderWidth: 1, padding: 10, marginVertical: 10, borderRadius: 5},
-  link: {marginTop: 10, color: 'blue', textAlign: 'center'},
-});
+export default LoginScreen;
