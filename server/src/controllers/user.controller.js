@@ -16,7 +16,6 @@ const generateAccessandRefreshTokens = async (userId) => {
 
     await user.save({ validateBeforeSave: false });
 
-
     return { accessToken, refreshToken };
   } catch (error) {
     throw new ApiError(
@@ -34,14 +33,36 @@ const registerUser = asyncHandler(async (req, res) => {
   // remove password and refresh token field from response
   // check for user creation
   // return res
- 
-  const { fullName, email, username, password } = req.body;
+
+  const {
+    username,
+    email,
+    dob,
+    password,
+    height,
+    weight,
+    primaryGoal,
+    workoutFrequency,
+    currentFitnessLevel,
+    dailAvtivityLevel,
+  } = req.body;
   //console.log("email: ", email);
   // console.log(req.body)
-  // console.log({fullName, email, username, password})
+  // console.log({email, username, password})
 
   if (
-    [fullName, email, username, password].some((field) => field?.trim() === "")
+    [
+      username,
+      email,
+      dob,
+      password,
+      height,
+      weight,
+      primaryGoal,
+      workoutFrequency,
+      currentFitnessLevel,
+      dailAvtivityLevel,
+    ].some((field) => field?.trim() === "")
   ) {
     throw new ApiError(400, "All fields are required");
   }
@@ -56,13 +77,12 @@ const registerUser = asyncHandler(async (req, res) => {
   //console.log(req.files);
 
   const user = await User.create({
-    fullName,
+    username,
     email,
-    password,
-    username: username.toLowerCase(),
+    password
   });
 
-  console.log('user' , user)
+  console.log("user", user);
 
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken"
@@ -118,7 +138,7 @@ const loginUser = asyncHandler(async (req, res) => {
     secure: true,
   };
 
-  // console.log('loggedInUser' , loggedInUser)
+  console.log("loggedInUser", loggedInUser);
 
   return res
     .status(200)
@@ -235,9 +255,9 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
-  const { fullName, email } = req.body;
+  const { email } = req.body;
 
-  if (!fullName || !email) {
+  if (!email) {
     throw new ApiError(400, "All fields are required");
   }
 
@@ -245,7 +265,6 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     req.user?._id,
     {
       $set: {
-        fullName,
         email: email,
       },
     },
