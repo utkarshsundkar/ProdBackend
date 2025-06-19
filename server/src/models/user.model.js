@@ -19,20 +19,41 @@ const userSchema = new Schema(
             lowecase: true,
             trim: true, 
         },
-        fullName: {
-            type: String,
-            required: true,
-            trim: true, 
-            index: true
+        dob:{
+            type: Date,
+            required: [true, 'Date of birth is required'] 
         },
         password: {
             type: String,
             required: [true, 'Password is required']
         },
+        height : {
+            type: Number,
+            required: [true, 'Height is required']
+        },
+        weight : {
+            type: Number,
+            required: [true, 'Weight is required']
+        },
+        primaryGoal: {
+            type: String,
+            required: [true, 'Primary goal is required']
+        },
+        workoutFrequency: {
+            type: Number,
+            required: [true, 'Workout frequency is required']
+        },
+        currentFitnessLevel: {
+            type: String,
+            required: [true, 'Current fitness level is required']
+        },
+        dailAvtivityLevel: {
+            type: String,
+            required: [true, 'Daily activity level is required']
+        },
         refreshToken: {
             type: String
         }
-
     },
     {
         timestamps: true
