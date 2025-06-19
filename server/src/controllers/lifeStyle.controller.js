@@ -5,14 +5,14 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 // Create and Save Lifestyle Entry
 const saveLifestyle = asyncHandler(async (req, res) => {
-    const { sleep, water, steps } = req.body;
+    const { userId,sleep, water, steps } = req.body;
 
     // Basic field validation
     if (sleep === undefined || water === undefined || steps === undefined) {
         throw new ApiError(400, "All fields (sleep, water, steps) are required");
     }
 
-    const lifestyleEntry = await Lifestyle.create({ sleep, water, steps });
+    const lifestyleEntry = await Lifestyle.create({ userId, sleep, water, steps });
 
     return res
         .status(201)

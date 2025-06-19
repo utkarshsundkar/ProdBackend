@@ -13,9 +13,9 @@ const diySchema = new mongoose.Schema(
             required: true,
             validate: {
                 validator: function (arr) {
-                    return arr.length > 0; // Must have at least one exercise
+                    return arr.length  > 1 ; // Must have at least one exercise
                 },
-                message: 'There must be at least one exercise.'
+                message: 'There must be at least two exercise.'
             }
         }
     },

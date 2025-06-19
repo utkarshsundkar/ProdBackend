@@ -2,6 +2,8 @@ import Joi from 'joi';
 
 // Define onboarding validation schema
 const onboardingSchema = Joi.object({
+    userId: Joi.string()
+        .required(),
     dob: Joi.date()
         .less('now') // DOB should be in the past
         .required()
@@ -29,13 +31,14 @@ const onboardingSchema = Joi.object({
             'any.required': 'Weight is required.'
         }),
 
-    primaryGoal: Joi.string()
-        .trim()
+    gender: Joi.string()
+        .valid('male', 'female', 'other')
         .required()
         .messages({
-            'string.base': 'Primary goal must be a string.',
-            'any.required': 'Primary goal is required.'
+            'string.base': 'Gender must be a string.',
+            'any.required': 'Gender is required.'
         }),
+    primaryGoal: Joi.string(),
 
     workoutFrequency: Joi.number()
         .integer()

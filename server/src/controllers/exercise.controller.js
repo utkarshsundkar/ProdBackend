@@ -4,7 +4,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 const saveExercise = asyncHandler(async (req, res, next) => {
-    const { exercise_name, reps_performed, reps_performed_perfect } = req.body;
+    const { userId, exercise_name, reps_performed, reps_performed_perfect } = req.body;
 
     // Basic validation
     if (!exercise_name || reps_performed == null || reps_performed_perfect == null) {
@@ -13,6 +13,7 @@ const saveExercise = asyncHandler(async (req, res, next) => {
 
     // Create and save new exercise
     const newExercise = await Exercise.create({
+        userId,
         exercise_name,
         reps_performed,
         reps_performed_perfect

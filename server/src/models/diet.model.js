@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { User } from './user.model.js';
 
 const dietSchema = new mongoose.Schema({
   userId: {
@@ -9,7 +10,7 @@ const dietSchema = new mongoose.Schema({
   primaryGoal: {
     type: String,
     required: true,
-    enum: ['Weight Loss', 'Muscle Gain', 'Endurance', 'Maintenance', 'Toning']
+    enum: ['Weight Loss', 'Muscle Gain', 'Endurance', 'Maintenance', 'Toning', 'Build muscle']
   },
   calorie: {
     type: Number,
@@ -45,6 +46,19 @@ dietSchema.virtual('macroPercentages').get(function() {
     carbs: total ? ((this.carbs * 4) / total * 100).toFixed(1) : 0,
     fats: total ? ((this.fats * 9) / total * 100).toFixed(1) : 0
   };
+});
+
+// Post-save hook to push diet _id to user's diet array
+dietSchema.post('save', async function (doc, next) {
+    try {
+        await User.findByIdAndUpdate(doc.userId, {
+            $push : { diet: doc._id } // Prevents duplicate entries
+        });
+        next();
+    } catch (error) {
+        console.error('Error pushing diet ID to user:', error);
+        next(error);
+    }
 });
 
 const Diet = mongoose.model('Diet', dietSchema);

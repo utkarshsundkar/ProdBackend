@@ -34,7 +34,8 @@ const userSchema = new mongoose.Schema({
   // 1:1 Relationship
   onboarding: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Onboarding'
+    ref: 'Onboarding',
+    default: null
   },
   // 1:M Relationships (should be arrays for history tracking)
   lifestyle: [{
