@@ -1,4 +1,4 @@
-import { Onboarding } from '../models/onBoarding.model.js';
+import  Onboarding  from '../models/onBoarding.model.js';
 import { onboardingSchema } from '../validators/onBoarding.validation.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
