@@ -20,6 +20,11 @@ const exerciseSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    credit_claimed:{
+      type: Boolean,
+      default: false,
+      
+    }
   },
   { timestamps: true }
 );
