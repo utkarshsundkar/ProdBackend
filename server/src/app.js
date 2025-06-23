@@ -7,6 +7,7 @@ import onboardingRouter from "./routes/onBoarding.routes.js"
 import dietRouter from "./routes/diet.routes.js"
 import creditRouter from "./routes/credit.routes.js"
 import lifestyleRouter from "./routes/lifeStyle.routes.js"
+import focusRouter from "./routes/focusMode.routes.js"
 import mongoSanitize from "express-mongo-sanitize"
 
 const app = express()
@@ -60,6 +61,6 @@ app.use("/api/v1/lifestyle", lifestyleRouter)
 
 app.use("/api/v1/credit", creditRouter)
 
-
+app.use("/api/v1/focus", focusRouter)
 
 export { app }

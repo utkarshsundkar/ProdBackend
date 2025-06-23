@@ -1,29 +1,66 @@
 import Exercise from '../models/exercise.model.js';
 import FocusSession from '../models/focusSession.model.js';
-import User from '../models/user.model.js';
+import {User} from '../models/user.model.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import mongoose from 'mongoose';
 
 const saveExercise = asyncHandler(async (req, res, next) => {
     const { userId, exercise_name, reps_performed, reps_performed_perfect, isFocused } = req.body;
 
     // Basic validation
-    if (!exercise_name || reps_performed == null || reps_performed_perfect == null) {
-        throw new ApiError(400, "All fields (exercise_name, reps_performed, reps_performed_perfect) are required.");
+    if (!userId || !exercise_name || reps_performed == null || reps_performed_perfect == null) {
+        throw new ApiError(400, "All fields (userId, exercise_name, reps_performed, reps_performed_perfect) are required.");
     }
 
-    // Create and save new exercise
+    // Create new exercise with processing status
     const newExercise = await Exercise.create({
         userId,
         exercise_name,
         reps_performed,
         reps_performed_perfect,
-        isFocused: isFocused || false, // Default to false if not provided
+        isFocused: isFocused || false
+        
     });
 
+    // For non-focused exercises, attempt to process credits immediately
+    if (!isFocused) {
+        try {
+            // Calculate credits (1 credit per perfect rep for normal exercises)
+            const creditsToAdd = reps_performed_perfect;
+            
+            // Optimistic update pattern with version checking
+            const updateResult = await User.findOneAndUpdate(
+                { _id: userId },
+                { $inc: { credits: creditsToAdd } },
+                { new: true }
+            );
+
+            if (updateResult) {
+                // Mark exercise as processed
+                newExercise. credit_claimed = true;
+                await newExercise.save();
+            } else {
+                throw new Error("User not found");
+            }
+        } catch (error) {
+            // Credit processing failed - will be handled by reconciliation
+            newExercise.credit_claimed = false;
+            await newExercise.save();
+            console.error("Credit processing failed:", error.message);
+            // Continue with response - failure will be handled asynchronously
+        }
+    }
+
     return res.status(201).json(
-        new ApiResponse(201, newExercise, "Exercise saved successfully!")
+        new ApiResponse(201, {
+            exercise: newExercise,
+            message: "Exercise saved successfully!" + 
+                    (isFocused ? " Credits will be awarded when focus session ends." : 
+                    newExercise.credit_claimed ? " Credits awarded." :
+                    " Credit awarding in progress.")
+        })
     );
 });
 
@@ -32,41 +69,64 @@ const saveExercise = asyncHandler(async (req, res, next) => {
 
 
 const saveFocusExercise = asyncHandler(async (req, res) => {
-    const { userId, exercise_name, reps_performed, reps_performed_perfect} = req.body;
-    // Check if user has an active focus session
-    let activeFocusSession = null;
+    const { userId, exercise_name, reps_performed, reps_performed_perfect } = req.body;
 
-   const user = await User.findById(userId).populate('currentFocusSession');
+    // Basic validation
+    if (!userId || !exercise_name || reps_performed == null || reps_performed_perfect == null) {
+        throw new ApiError(400, "All fields are required");
+    }
 
-if (!user || !user.currentFocusSession) {
-    throw new ApiError(400, "No active focus session found. Please start a focus session first.");
-}
+    // 1. Verify focus session exists and is active
+    const user = await User.findById(userId)
+        .populate({
+            path: 'currentFocusSession',
+            select: '_id isCompleted exercises'
+        });
 
- activeFocusSession = user.currentFocusSession;
+    if (!user?.currentFocusSession) {
+        throw new ApiError(400, "No active focus session found");
+    }
 
-if (activeFocusSession.isCompleted) {
-    throw new ApiError(400, "The focus session has already ended.");
-}
+    const focusSession = user.currentFocusSession;
+    if (focusSession.isCompleted) {
+        throw new ApiError(400, "Focus session already ended");
+    }
 
-// Now you can directly use activeFocusSession._id, activeFocusSession.exercises, etc.
-
-const newExercise = await Exercise.create({
-    userId,
+    // 2. Create the exercise
+    const newExercise = await Exercise.create({
+        userId,
         exercise_name,
         reps_performed,
         reps_performed_perfect,
-        isFocused: true, // Mark as focused exercise
-        focusSessionId: activeFocusSession ? activeFocusSession._id : null
+        isFocused: true,
+        focusSessionId: focusSession._id,
+       
     });
 
-if (activeFocusSession) {
-       activeFocusSession.exercises.push(newExercise._id);
-await activeFocusSession.save();
-
-    }
-  return res.status(201).json(
-        new ApiResponse(201, newExercise, "Exercise saved successfully!")
+    // 3. Add exercise to focus session
+    await FocusSession.findByIdAndUpdate(
+        focusSession._id,
+        { $push: { exercises: newExercise._id } }
     );
-})
 
+    // 4. Award credits (2x for focus exercises)
+    const creditsToAdd = reps_performed_perfect * 2;
+    await User.findByIdAndUpdate(
+        userId,
+        { $inc: { credits: creditsToAdd } }
+    );
+
+    // 5. Mark as processed
+    await Exercise.findByIdAndUpdate(
+        newExercise._id,
+        { $set: { credit_claimed: true } }
+    );
+
+    return res.status(201).json(
+        new ApiResponse(201, {
+            exercise: newExercise,
+            creditsAwarded: creditsToAdd
+        }, `Focused exercise saved! ${creditsToAdd} credits awarded (2x bonus)`)
+    );
+});
 export { saveExercise, saveFocusExercise };
