@@ -24,7 +24,13 @@ const exerciseSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       
-    }
+    },
+    isFocused: {
+      type: Boolean,
+      default: false
+    },
+    focusSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'FocusSession', default: null }
+
   },
   { timestamps: true }
 );

@@ -53,7 +53,14 @@ const userSchema = new mongoose.Schema({
   exercises: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Exercise'
-  }]
+  }],
+  currentFocusSession: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FocusSession',
+    default: null
+  },
+  focusSessions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'FocusSession' }]
+
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

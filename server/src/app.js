@@ -7,6 +7,7 @@ import onboardingRouter from "./routes/onBoarding.routes.js"
 import dietRouter from "./routes/diet.routes.js"
 import creditRouter from "./routes/credit.routes.js"
 import lifestyleRouter from "./routes/lifeStyle.routes.js"
+import mongoSanitize from "express-mongo-sanitize"
 
 const app = express()
 
@@ -31,6 +32,12 @@ app.use(express.json())
 app.use(express.urlencoded({extended: true}))
 app.use(express.static("public"))
 app.use(cookieParser())
+
+// Security middleware to prevent NoSQL injection attacks
+app.use(mongoSanitize({
+    allowDots: true, // Allow dots in keys
+    replaceWith: '_'
+}))
 
 //routes import
 import userRouter from './routes/user.routes.js'
