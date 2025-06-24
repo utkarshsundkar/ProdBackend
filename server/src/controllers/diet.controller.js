@@ -37,3 +37,24 @@ export const createDiet = asyncHandler(async (req, res) => {
         new ApiResponse(201, diet, 'Diet saved successfully.')
     );
 });
+
+export const getDiet = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+
+    // Basic validation
+    if (!userId) {
+        throw new ApiError(400, 'User ID is required.');
+    }
+
+    // 🔍 Find diet entry by userId
+    const diet = await Diet.findOne({ userId });
+
+    if (!diet) {
+        throw new ApiError(404, 'Diet not found for this user.');
+    }
+
+    // Return success response
+    return res.status(200).json(
+        new ApiResponse(200, diet, 'Diet retrieved successfully.')
+    );
+});
