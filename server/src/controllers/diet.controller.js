@@ -37,3 +37,36 @@ export const createDiet = asyncHandler(async (req, res) => {
         new ApiResponse(201, diet, 'Diet saved successfully.')
     );
 });
+
+
+export const getDietByDate = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    const { date } = req.query; // Accept date in query like: /api/v1/diet/get/:userId?date=2025-06-24
+
+    if (!userId || !date) {
+        throw new ApiError(400, 'User ID and date are required.');
+    }
+
+    const targetDate = new Date(date);
+    if (isNaN(targetDate.getTime())) {
+        throw new ApiError(400, 'Invalid date format. Please use YYYY-MM-DD.');
+    }
+
+    // Set time boundaries for the entire day
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+
+    // Find diet entry for the user within this date
+    const dietEntry = await Diet.findOne({
+        userId,
+        createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    if (!dietEntry) {
+        throw new ApiError(404, 'No diet entry found for the provided date.');
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, dietEntry, 'Diet entry fetched successfully.')
+    );
+});

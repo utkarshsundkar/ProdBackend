@@ -29,6 +29,9 @@ export const createDIY = asyncHandler(async (req, res) => {
     );
 });
 
+// Get DIY entries by userId
+// This endpoint retrieves all DIY entries for a specific user, sorted by day in descending order
+
 export const getDIYByUser = asyncHandler(async (req, res) => {
     const { userId } = req.params;
 

@@ -46,6 +46,11 @@ import userRouter from './routes/user.routes.js'
 // import LeaderBoardRouter from "./routes/leaderBoard.routes.js";
 
 //routes declaration
+app.get("/", (req, res) => {
+    res.status(200).json({
+        message: "Welcome to the Arthlete API"
+    });
+});
 
 app.use("/api/v1/users", userRouter)
 
