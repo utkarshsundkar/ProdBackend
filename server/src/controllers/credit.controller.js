@@ -107,3 +107,21 @@ export const giveNormalCredits = asyncHandler(async (req, res) => {
     console.error('Max retries reached for giveCredits:', lastError);
     throw new ApiError(429, 'System busy processing credits. Please try again in a moment.');
 });
+
+export const getUserCredits = asyncHandler(async (req, res) => {
+    const { userId } = req.body;
+
+    if (!userId) {
+        throw new ApiError(400, 'User ID is required.');
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new ApiError(404, 'User not found.');
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, { credits: user.credits }, 'User credits fetched successfully.')
+    );
+});

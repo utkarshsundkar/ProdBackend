@@ -1,10 +1,11 @@
 import express from 'express';
-import { giveNormalCredits } from '../controllers/credit.controller.js';
+import { getUserCredits, giveNormalCredits } from '../controllers/credit.controller.js';
 
 
 const router = express.Router();
 
 // Give credits
 router.post('/give', giveNormalCredits);
+router.get('/get', getUserCredits);
 
 export default router;

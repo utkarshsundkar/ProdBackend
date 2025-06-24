@@ -129,4 +129,22 @@ const saveFocusExercise = asyncHandler(async (req, res) => {
         }, `Focused exercise saved! ${creditsToAdd} credits awarded (2x bonus)`)
     );
 });
-export { saveExercise, saveFocusExercise };
+
+ const getUserExercises = asyncHandler(async (req, res) => {
+    const { userId } = req.body;
+
+    if (!userId) {
+        throw new ApiError(400, 'User ID is required.');
+    }
+
+    const exercises = await Exercise.find({ userId }).sort({ createdAt: -1 });
+
+    if (!exercises || exercises.length === 0) {
+        throw new ApiError(404, 'No exercises found for this user.');
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, exercises, 'Exercises fetched successfully.')
+    );
+});
+export { saveExercise, saveFocusExercise, getUserExercises };
