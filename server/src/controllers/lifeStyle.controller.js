@@ -29,28 +29,33 @@ const saveLifestyle = asyncHandler(async (req, res) => {
 // Get Lifestyle Entry by User ID
 const getLifeStyle = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { date } = req.query;
+    const { date } = req.query; // Accept date in query like: /api/v1/diet/get/:userId?date=2025-06-24
 
-  // Basic validation
-  if (!userId) {
-    throw new ApiError(400, "User ID is required");
-  }
+    if (!userId || !date) {
+        throw new ApiError(400, 'User ID and date are required.');
+    }
 
-  // Find lifestyle entry by userId
-  const lifestyleEntry = await Lifestyle.find({ userId })
-  const lifestyleDate = await Lifestyle.findOne({ userId, date });
-  if (!lifestyleEntry) {
-    throw new ApiError(404, "Lifestyle entry not found for this user");
-  }
+    const targetDate = new Date(date);
+    if (isNaN(targetDate.getTime())) {
+        throw new ApiError(400, 'Invalid date format. Please use YYYY-MM-DD.');
+    }
 
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        lifestyleEntry,
-        "Lifestyle entry retrieved successfully"
-      )
+    // Set time boundaries for the entire day
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+
+    // Find diet entry for the user within this date
+    const lifeStyleEntry = await Lifestyle.findOne({
+        userId,
+        createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    if (!lifeStyleEntry) {
+        throw new ApiError(404, 'No diet entry found for the provided date.');
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, lifeStyleEntry, 'Diet entry fetched successfully.')
     );
 });
 
