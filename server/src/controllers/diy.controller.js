@@ -29,3 +29,23 @@ export const createDIY = asyncHandler(async (req, res) => {
     );
 });
 
+export const getDIYByUser = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+
+    if (!userId) {
+        throw new ApiError(400, "userId is required.");
+    }
+
+    const diyEntries = await DIY.find({ userId })
+        .sort({ day: -1 }) // Sort by day descending
+        .populate('exercises', 'exercise_name reps_performed reps_performed_perfect'); // Populate exercises
+
+    if (!diyEntries || diyEntries.length === 0) {
+        return res.status(404).json(new ApiResponse(404, [], "No DIY entries found for this user."));
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, diyEntries, "DIY entries retrieved successfully.")
+    );
+});
+

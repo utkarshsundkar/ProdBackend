@@ -6,6 +6,6 @@ const router = express.Router();
 
 // Give credits
 router.post('/give', giveNormalCredits);
-router.get('/get', getUserCredits);
+router.get('/get/:userId', getUserCredits);
 
 export default router;
