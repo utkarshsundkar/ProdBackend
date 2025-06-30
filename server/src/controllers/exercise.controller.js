@@ -103,7 +103,8 @@ const saveFocusExercise = asyncHandler(async (req, res) => {
         reps_performed_perfect,
         isFocused: true,
         focusSessionId: focusSession._id,
-       
+        status: reps_performed === reps_performed_perfect
+
     });
 
     // 3. Add exercise to focus session
@@ -114,16 +115,7 @@ const saveFocusExercise = asyncHandler(async (req, res) => {
 
     // 4. Award credits (2x for focus exercises)
     const creditsToAdd = reps_performed_perfect * 2;
-    await User.findByIdAndUpdate(
-        userId,
-        { $inc: { credits: creditsToAdd } }
-    );
-
-    // 5. Mark as processed
-    await Exercise.findByIdAndUpdate(
-        newExercise._id,
-        { $set: { credit_claimed: true } }
-    );
+    
 
     return res.status(201).json(
         new ApiResponse(201, {
@@ -132,6 +124,68 @@ const saveFocusExercise = asyncHandler(async (req, res) => {
         }, `Focused exercise saved! ${creditsToAdd} credits awarded (2x bonus)`)
     );
 });
+
+//========================================
+
+
+
+const updateExerciseProgress = asyncHandler(async (req, res) => {
+  const { userId, exercise_name, reps_performed, reps_performed_perfect } = req.body;
+
+  // Validate input
+  if (!userId || !exercise_name || reps_performed == null || reps_performed_perfect == null) {
+    return res.status(400).json({ error: "All fields (userId, exercise_name, reps_performed, reps_performed_perfect) are required." });
+  }
+
+  // Fetch user with currentFocusSession populated
+  const user = await User.findById(userId).populate({
+    path: 'currentFocusSession',
+    select: '_id isCompleted exercises',
+    populate: {
+      path: 'exercises',
+      select: '_id exercise_name status'
+    }
+  });
+
+  if (!user?.currentFocusSession) {
+    throw new ApiError(400, "No active focus session found");
+  }
+
+  const focusSession = user.currentFocusSession;
+
+  // Find matching exercise with status = false
+  const targetExercise = focusSession.exercises.find(
+    ex => ex.exercise_name === exercise_name && ex.status === false
+  );
+
+  if (!targetExercise) {
+    return res.status(404).json({ error: 'No incomplete matching exercise found in the current session.' });
+  }
+
+  // Determine if reps are perfect
+  const isComplete = reps_performed === reps_performed_perfect;
+
+  // Update the exercise document
+  const updatedExercise = await Exercise.findByIdAndUpdate(
+    targetExercise._id,
+    {
+      reps_performed,
+      reps_performed_perfect,
+      status: isComplete
+    },
+    { new: true }
+  );
+
+  return res.status(200).json({
+    message: isComplete ? "Exercise completed successfully." : "Exercise updated but not completed.",
+    exercise: updatedExercise
+  });
+});
+
+
+
+
+
 
  const getUserExercises = asyncHandler(async (req, res) => {
     const { userId } = req.params;
@@ -150,4 +204,9 @@ const saveFocusExercise = asyncHandler(async (req, res) => {
         new ApiResponse(200, exercises, 'Exercises fetched successfully.')
     );
 });
-export { saveExercise, saveFocusExercise, getUserExercises };
+
+
+
+
+
+export { saveExercise, saveFocusExercise, getUserExercises, updateExerciseProgress };
