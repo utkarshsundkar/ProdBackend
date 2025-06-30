@@ -55,7 +55,7 @@ export const endFocusSession = asyncHandler(async (req, res) => {
 
         // Calculate imperfect reps more efficiently
         const creditsToDeduct = focusSession.exercises.reduce((total, exercise) => {
-            const imperfectReps = exercise.reps_performed - exercise.reps_performed_perfect;
+            const imperfectReps = 3 * exercise.reps_performed_perfect;
             return imperfectReps > 0 ? total + imperfectReps : total;
         }, 0);
 
@@ -94,4 +94,78 @@ export const endFocusSession = asyncHandler(async (req, res) => {
     } finally {
         session.endSession();
     }
+});
+
+//===================================
+
+export const checkAndFinalizePreviousFocusSession = asyncHandler(async (req, res) => {
+  const { userId } = req.body;
+
+  if (!userId) throw new ApiError(400, "User ID is required.");
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Step 1: Fetch user with populated currentFocusSession and exercises
+    const user = await User.findById(userId)
+      .populate({
+        path: "currentFocusSession",
+        populate: {
+          path: "exercises",
+          model: "Exercise",
+          select: "reps_performed reps_performed_perfect"
+        }
+      })
+      .session(session);
+
+    const focusSession = user?.currentFocusSession;
+
+    // Step 2: If no active session or already completed, exit early
+    if (!focusSession || focusSession.isCompleted) {
+      await session.commitTransaction();
+      return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "No previous session to finalize."));
+    }
+
+    // Step 3: Calculate imperfect reps
+    const creditsToDeduct = focusSession.exercises.reduce((total, exercise) => {
+      const imperfect = 3 * exercise.reps_performed_perfect;
+      return imperfect > 0 ? total + imperfect : total;
+    }, 0);
+
+    // Step 4: Deduct credits from user if needed
+    if (creditsToDeduct > 0) {
+      user.credits -= creditsToDeduct;
+    }
+
+    // Step 5: Finalize session
+    focusSession.endTime = new Date();
+    focusSession.isCompleted = true;
+    focusSession.creditsDeducted = creditsToDeduct;
+    user.currentFocusSession = undefined;
+
+    await focusSession.save({ session });
+    await user.save({ session });
+    await session.commitTransaction();
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          focusSession,
+          remainingCredits: user.credits
+        },
+        creditsToDeduct > 0
+          ? `${creditsToDeduct} credits were deducted from unfinished session.`
+          : "Previous session finalized with no deductions."
+      )
+    );
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 });

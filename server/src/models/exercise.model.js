@@ -35,18 +35,18 @@ const exerciseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// 🔗 Post-save hook to push exercise _id to user's exercises array
-exerciseSchema.post("save", async function (doc, next) {
-  try {
-    await User.findByIdAndUpdate(doc.userId, {
-      $push: { exercises: doc._id },
-    });
-    next();
-  } catch (error) {
-    console.error("Error pushing exercise ID to user:", error);
-    next(error);
-  }
-});
+// // 🔗 Post-save hook to push exercise _id to user's exercises array
+// exerciseSchema.post("save", async function (doc, next) {
+//   try {
+//     await User.findByIdAndUpdate(doc.userId, {
+//       $push: { exercises: doc._id },
+//     });
+//     next();
+//   } catch (error) {
+//     console.error("Error pushing exercise ID to user:", error);
+//     next(error);
+//   }
+// });
 
 const Exercise = mongoose.model("Exercise", exerciseSchema);
 

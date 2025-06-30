@@ -23,6 +23,9 @@ const saveExercise = asyncHandler(async (req, res, next) => {
         isFocused: isFocused || false
         
     });
+    await User.findByIdAndUpdate(userId, {
+  $push: { exercises: newExercise._id },
+});
 
     // For non-focused exercises, attempt to process credits immediately
     if (!isFocused) {
