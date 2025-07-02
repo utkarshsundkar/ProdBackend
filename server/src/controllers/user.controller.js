@@ -14,8 +14,8 @@ const generateAccessandRefreshTokens = async (userId) => {
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
-    console.log("🔵 Access Token:", accessToken); 
-    console.log("🔵 Access Token:", refreshToken); 
+    // console.log("🔵 Access Token:", accessToken); 
+    // console.log("🔵 Access Token:", refreshToken); 
 
     user.refreshToken = refreshToken;
 
@@ -65,7 +65,7 @@ const registerUser = asyncHandler(async (req, res) => {
     password,
   });
 
-  console.log("user", user);
+  // console.log("user", user);
 
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken"
@@ -74,6 +74,8 @@ const registerUser = asyncHandler(async (req, res) => {
   if (!createdUser) {
     throw new ApiError(500, "Something went wrong while registering the user");
   }
+
+  console.log('createdUser', createdUser);
 
   return res
     .status(201)
@@ -90,7 +92,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const { email, username, password } = req.body;
 
-  console.log("email", email);
+  // console.log("email", email);
 
   if (!username && !email) {
     throw new ApiError(401, "username or email is required");
@@ -159,6 +161,8 @@ const logoutUser = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: true,
   };
+
+  console.log("logging out user:", req.user._id);
 
   return res
     .status(200)

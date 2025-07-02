@@ -1,40 +1,31 @@
-import React, { useState, useContext } from "react";
-import { View, TextInput, Button, Text } from "react-native";
-import AuthContext from "../context/AuthContext.js";
+import React, { useContext, useState } from "react";
+import { View, TextInput, Button } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import AuthContext from "../context/AuthContext.js"; 
 
-const RegisterScreen = ({ navigation }) => {
-  const { register } = useContext(AuthContext);
-  const [fullName, setFullName] = useState("");
+const RegisterScreen = () => {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const { register } = useContext(AuthContext);
+  const navigation = useNavigation();
 
   const handleRegister = async () => {
-    try {
-      await register(fullName, email, password);
-    } catch (error) {
-      console.error("Registration failed", error.response?.data?.message);
+    const success = await register(username, email, password);
+    if (success) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Home" }],
+      });
     }
   };
 
   return (
     <View>
-      <TextInput
-        placeholder="Full Name"
-        onChangeText={setFullName}
-        value={fullName}
-      />
-      <TextInput placeholder="Email" onChangeText={setEmail} value={email} />
-      <TextInput
-        placeholder="Password"
-        secureTextEntry
-        onChangeText={setPassword}
-        value={password}
-      />
+      <TextInput value={username} onChangeText={setUsername} placeholder="Username" />
+      <TextInput value={email} onChangeText={setEmail} placeholder="Email" />
+      <TextInput value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry />
       <Button title="Register" onPress={handleRegister} />
-      <Button
-        title="Already have an account? Login"
-        onPress={() => navigation.navigate("Login")}
-      />
     </View>
   );
 };

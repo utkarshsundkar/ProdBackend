@@ -9,14 +9,20 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
 
-    console.log("Attempting to login with", { email, password });
+    // console.log("Attempting to login with", { email, password });
+    if (!email || !password) {
+      console.error("Email and password are required");
+      return;
+    }
     
     try {
       await login(email, password);
     } catch (error) {
-
+      throw error
       console.error("Login failed", error.response?.data?.message);
     }
+    navigation.navigate("Home");
+    console.log("Login successful, navigating to Home");
   };
 
   return (
