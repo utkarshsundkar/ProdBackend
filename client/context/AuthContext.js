@@ -23,7 +23,9 @@ export const AuthProvider = ({ children }) => {
     };
     loadUser();
   }, []);
+
   // Login User
+
   const login = async (email, password) => {
     const res = await axios.post(`${BASE_URL}/users/login`, { email, password });
     const { accessToken, user } = res.data;
@@ -34,6 +36,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Register User
+
   const register = async (fullName, email, password) => {
     const res = await axios.post(`${BASE_URL}/users/register`, {
       fullName,

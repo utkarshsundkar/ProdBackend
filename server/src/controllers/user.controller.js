@@ -3,14 +3,19 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 
 const generateAccessandRefreshTokens = async (userId) => {
   try {
     const user = await User.findById(userId);
 
+    if (!user) throw new Error("User not found for token generation");
+
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
-    // console.log({ accessToken, refreshToken });
+
+    console.log("🔵 Access Token:", accessToken); 
+    console.log("🔵 Access Token:", refreshToken); 
 
     user.refreshToken = refreshToken;
 
@@ -18,12 +23,14 @@ const generateAccessandRefreshTokens = async (userId) => {
 
     return { accessToken, refreshToken };
   } catch (error) {
+    console.error("Error in generateAccessandRefreshTokens:", error); 
     throw new ApiError(
       500,
       "something went wrong while generating Access and Refresh Tokens "
     );
   }
 };
+
 
 const registerUser = asyncHandler(async (req, res) => {
   // get user details from frontend
@@ -34,26 +41,12 @@ const registerUser = asyncHandler(async (req, res) => {
   // check for user creation
   // return res
 
-  const {
-    username,
-    email,
-   
-    password
-    
-  } = req.body;
+  const { username, email, password } = req.body;
   //console.log("email: ", email);
   // console.log(req.body)
   // console.log({email, username, password})
 
-  if (
-    [
-      username,
-      email,
-    
-      password,
-    
-    ].some((field) => field?.trim() === "")
-  ) {
+  if ([username, email, password].some((field) => field?.trim() === "")) {
     throw new ApiError(400, "All fields are required");
   }
 
@@ -69,7 +62,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const user = await User.create({
     username,
     email,
-    password
+    password,
   });
 
   console.log("user", user);
@@ -97,19 +90,21 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const { email, username, password } = req.body;
 
+  console.log("email", email);
+
   if (!username && !email) {
     throw new ApiError(401, "username or email is required");
   }
 
-  const user = await User.findOne({
-    $or: [{ username }, { email }],
-  });
+  const user = await User.findOne({ email }).select("+password");
 
   if (!user) {
     throw new ApiError(404, "user does not exist ");
   }
 
-  const isPasswordvalid = await user.isPasswordCorrect(password);
+  // console.log("user", user);
+
+  const isPasswordvalid = await bcrypt.compare(password, user.password);
 
   if (!isPasswordvalid) {
     throw new ApiError(401, "password is incorrect");

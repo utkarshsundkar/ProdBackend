@@ -45,6 +45,15 @@ const onboardingSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    securityQuestions : {
+      type : String , 
+      required : true,
+      enum: ["What is your favorite food?", "What is your first pet's name?", "What is your mother's maiden name?", "what was the name of your first school?"]
+    },
+    securityQuestionsAnswer : {
+      type : String , 
+      required : true,
+    }
   },
   { timestamps: true }
 );

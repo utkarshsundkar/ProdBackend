@@ -8,9 +8,13 @@ const LoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
+
+    console.log("Attempting to login with", { email, password });
+    
     try {
       await login(email, password);
     } catch (error) {
+
       console.error("Login failed", error.response?.data?.message);
     }
   };
