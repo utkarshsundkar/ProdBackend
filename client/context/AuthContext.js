@@ -26,47 +26,40 @@ export const AuthProvider = ({ children }) => {
 
   // Login User
 
-const login = async (email, password) => {
-  try {
+  const login = async (email, password) => {
     const res = await axios.post(`${BASE_URL}/users/login`, { email, password });
+    // console.log("access Token:", res.data.data.accessToken);
     const { accessToken, user } = res.data.data;
+
+    // console.log("Access Token:", accessToken);
+    // console.log("User Data:", user);
+
     await AsyncStorage.setItem("accessToken", accessToken);
     axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
     setUser(user);
-    return true;
-  } catch (err) {
-    console.error("Login error:", err);
-    return false;
-  }
-};
-
+  };
 
   // Register User
-const register = async (username, email, password) => {
-  try {
-    const res = await axios.post(`${BASE_URL}/users/register`, { username, email, password });
-    await login(email, password);
-    return true; // success
-  } catch (err) {
-    console.error("Registration error:", err);
-    return false;
-  }
-};
+
+  const register = async (fullName, email, password) => {
+    const res = await axios.post(`${BASE_URL}/users/register`, {
+      fullName,
+      email,
+      password,
+    });
+
+    const { accessToken, user } = res.data;
+
+    await AsyncStorage.setItem("accessToken", accessToken);
+    axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+    setUser(user);
+  };
 
   // Logout User
   const logout = async () => {
-    try {
-      await axios.post(`${BASE_URL}/users/logout`, {}, {
-        headers: {
-          Authorization: axios.defaults.headers.common["Authorization"]
-        }
-      });
-    } catch (error) {
-      // Optionally handle error, but still clear local state
-      console.error("Logout API error", error?.response?.data?.message || error.message);
-    }
     await AsyncStorage.removeItem("accessToken");
     setUser(null);
+    nsvigation.navigate("Login");
     axios.defaults.headers.common["Authorization"] = "";
   };
 
