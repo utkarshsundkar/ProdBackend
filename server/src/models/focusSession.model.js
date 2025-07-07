@@ -6,6 +6,7 @@ const focusSessionSchema = new mongoose.Schema({
     endTime: { type: Date },
     exercises: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Exercise' }],
     isCompleted: { type: Boolean, default: false },
+       imperfectReps: { type: Number, default: 0 },
     creditsDeducted: { type: Number, default: 0 }
 }, { timestamps: true });
 
