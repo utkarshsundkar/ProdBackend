@@ -1,4 +1,3 @@
-
 import React, { useContext, useState } from "react";
 import { StyleSheet, View, Text, TextInput, Pressable, SafeAreaView, Dimensions, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -11,27 +10,32 @@ const RegisterScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const { register } = useContext(AuthContext);
   const navigation = useNavigation();
 
   const handleRegister = async () => {
+    setError("");
+    setSuccess("");
     if (!username || !email || !password) {
       setError("All fields are required");
       return;
     }
+    console.log('Register payload:', { username, email, password });
     try {
-      const success = await register(username, email, password);
-      if (success) {
+      const successResult = await register(username, email, password);
+      if (successResult) {
         setError("");
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Home" }],
-        });
+        setSuccess("Registration successful! Please sign in.");
+        setTimeout(() => {
+          navigation.replace("Sign In");
+        }, 1200);
       } else {
         setError("Registration failed. Please check your details.");
       }
     } catch (err) {
       setError("Registration failed. Please check your details.");
+      console.error('Registration error:', err);
     }
   };
 
@@ -39,6 +43,7 @@ const RegisterScreen = () => {
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Register</Text>
       <Text style={styles.subheading}>Fill the details to create an account</Text>
+      {success ? <Text style={{ color: 'green', marginBottom: 10 }}>{success}</Text> : null}
       {error ? <Text style={{ color: 'red', marginBottom: 10 }}>{error}</Text> : null}
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>USERNAME</Text>

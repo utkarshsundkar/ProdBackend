@@ -13,11 +13,26 @@ export const AuthProvider = ({ children }) => {
   // Check token on app load
   useEffect(() => {
     const loadUser = async () => {
-      const token = await AsyncStorage.getItem("accessToken");
-      if (token) {
-        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-        const res = await axios.get(`${BASE_URL}/users/current-user`);
-        setUser(res.data.user);
+      try {
+        const token = await AsyncStorage.getItem("accessToken");
+        console.log('AuthProvider: Loaded token from storage:', token);
+        if (token) {
+          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+          try {
+            const res = await axios.get(`${BASE_URL}/users/current-user`);
+            setUser(res.data.data.user);
+            console.log('AuthProvider: Loaded user from backend:', res.data.user);
+          } catch (err) {
+            console.error('AuthProvider: Error fetching user with token:', err?.response?.data || err.message);
+            setUser(null);
+            await AsyncStorage.removeItem("accessToken"); // Remove invalid token
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        console.error('AuthProvider: Error loading token from storage:', err);
+        setUser(null);
       }
       setLoading(false);
     };
@@ -27,39 +42,45 @@ export const AuthProvider = ({ children }) => {
   // Login User
 
   const login = async (email, password) => {
-    const res = await axios.post(`${BASE_URL}/users/login`, { email, password });
-    // console.log("access Token:", res.data.data.accessToken);
-    const { accessToken, user } = res.data.data;
-
-    // console.log("Access Token:", accessToken);
-    // console.log("User Data:", user);
-
-    await AsyncStorage.setItem("accessToken", accessToken);
-    axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-    setUser(user);
+    try {
+      const res = await axios.post(`${BASE_URL}/users/login`, { email, password });
+      console.log('Login response:', res.data);
+      const { accessToken, user } = res.data.data || {};
+      if (!accessToken || !user) return false;
+      await AsyncStorage.setItem("accessToken", accessToken);
+      axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+      setUser(user);
+      return true;
+    } catch (err) {
+      console.error('Login error:', err);
+      return false;
+    }
   };
 
   // Register User
 
-  const register = async (fullName, email, password) => {
-    const res = await axios.post(`${BASE_URL}/users/register`, {
-      fullName,
-      email,
-      password,
-    });
-
-    const { accessToken, user } = res.data;
-
-    await AsyncStorage.setItem("accessToken", accessToken);
-    axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-    setUser(user);
+  const register = async (username, email, password) => {
+    try {
+      const res = await axios.post(`${BASE_URL}/users/register`, {
+        username,
+        email,
+        password,
+      });
+      console.log('Register response:', res.data);
+      const user = res.data.data;
+      if (!user) return false;
+      // Do not setUser here; require login after registration
+      return true;
+    } catch (err) {
+      console.error('Register error:', err);
+      return false;
+    }
   };
 
   // Logout User
   const logout = async () => {
     await AsyncStorage.removeItem("accessToken");
     setUser(null);
-    nsvigation.navigate("Login");
     axios.defaults.headers.common["Authorization"] = "";
   };
 

@@ -16,11 +16,12 @@ const LoginScreen = ({ navigation }) => {
       setError("Email and password are required");
       return;
     }
+    setError("");
     try {
       const success = await login(email, password);
       if (success) {
-        navigation.navigate("Home");
         setError("");
+        navigation.navigate("Home");
         console.log("Login successful, navigating to Home");
       } else {
         setError("Login failed. Please check your credentials.");
