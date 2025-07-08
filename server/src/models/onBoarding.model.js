@@ -8,7 +8,6 @@ const onboardingSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-
     dob: {
       type: Date,
       required: true,
@@ -28,10 +27,16 @@ const onboardingSchema = new mongoose.Schema(
     gender: {
       type: String,
       required: true,
+      enum : ["male" , "female"],
     },
     primaryGoal: {
       type: String,
       required: true,
+      enum: [
+        "weight loss",
+        "muscle gain",
+        "maintain current weight",
+      ],
     },
     workoutFrequency: {
       type: Number, // Number of days per week, etc.
@@ -40,15 +45,29 @@ const onboardingSchema = new mongoose.Schema(
     currentFitnessLevel: {
       type: String,
       required: true,
+      enum: [
+        "beginner",
+        "intermediate",
+        "advanced",
+      ],
     },
     dailyActivityLevel: {
       type: String,
       required: true,
+      enum: [
+        "low",
+        "moderate",
+        "high"
+      ]
     },
     securityQuestions : {
       type : String , 
       required : true,
-      enum: ["What is your favorite food?", "What is your first pet's name?", "What is your mother's maiden name?", "what was the name of your first school?"]
+      enum: ["What is your favorite food?",
+        "What is your first pet's name?", 
+        "What is your mother's maiden name?", 
+        "what was the name of your first school?"
+      ]
     },
     securityQuestionsAnswer : {
       type : String , 

@@ -21,25 +21,23 @@ const ForgetPassword = ({ navigation }) => {
       speed: 40,
       bounciness: 6,
     }).start();
-    // Placeholder: No backend, just a placeholder action
-    // You could show an alert or do nothing
   };
   const showInvalid = email.length > 0 && !email.includes('@');
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Bar */}
-      <View style={styles.topBar}>
+      {/* <View style={styles.topBar}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
           <Text style={styles.backArrow}>{'←'}</Text>
         </Pressable>
         <Pressable style={styles.helpBtn}>
           <Text style={styles.helpText}>Need Help?</Text>
         </Pressable>
-      </View>
+      </View> */}
       {/* Title */}
       <Text style={styles.title}>Forget Password!</Text>
       {/* Subheading */}
-      <Text style={styles.subheading}>Enter your email we will send you code on your email</Text>
+      {/* <Text style={styles.subheading}>Enter your email we will send you code on your email</Text> */}
       {/* Email Field */}
       <View style={styles.emailFieldContainer}>
         <TextInput
