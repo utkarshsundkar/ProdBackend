@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useRoute } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -18,6 +19,9 @@ const VISIBLE_ITEMS = 5;
 const CENTER_INDEX = Math.floor(VISIBLE_ITEMS / 2);
 
 export default function HeightScreen({ navigation }: any) {
+  const route= useRoute();
+  const {gender,age,weight}=route.params;
+  console.log(gender,age,weight)
   const [selectedIndex, setSelectedIndex] = useState(50); // Default to 150cm
   const flatListRef = useRef<FlatList>(null);
 
@@ -97,7 +101,7 @@ export default function HeightScreen({ navigation }: any) {
         <TouchableOpacity style={styles.skipBtn}>
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.replace('Weight')}>
+        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.replace('ActivityLevel',{gender,age,weight,height:HEIGHTS[selectedIndex]})}>
           <Text style={styles.continueText}>Continue</Text>
         </TouchableOpacity>
       </View>

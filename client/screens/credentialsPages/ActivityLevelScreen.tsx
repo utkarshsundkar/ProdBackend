@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRoute } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -28,6 +29,9 @@ const ACTIVITY_LEVELS = [
 ];
 
 export default function ActivityLevelScreen({ navigation }: any) {
+  const route=useRoute();
+  const {gender,age,weight,height}=route.params;
+  console.log(gender,age,weight,height)
   const [selectedIndex, setSelectedIndex] = useState(1); // Default to Lightly Active
 
   return (
@@ -76,7 +80,7 @@ export default function ActivityLevelScreen({ navigation }: any) {
         <TouchableOpacity style={styles.skipBtn}>
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.replace('ExtraData')}>
+        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.replace('extraData',{gender,age,weight,height,activityLevel: ACTIVITY_LEVELS[selectedIndex].title})}>
           <Text style={styles.continueText}>Continue</Text>
         </TouchableOpacity>
       </View>

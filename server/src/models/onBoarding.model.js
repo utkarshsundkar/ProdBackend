@@ -39,7 +39,7 @@ const onboardingSchema = new mongoose.Schema(
       ],
     },
     workoutFrequency: {
-      type: Number, // Number of days per week, etc.
+      type: String, // Number of days per week, etc.
       required: true,
     },
     currentFitnessLevel: {

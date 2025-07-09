@@ -13,16 +13,19 @@ import {
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
-const WEIGHTS = Array.from({ length: 9 }, (_, i) => 72 + i); // 72-80
+// Use AGES array for age selection, e.g., 10-100 years
+const AGES = Array.from({ length: 91 }, (_, i) => 10 + i); // 10-100
 const ITEM_HEIGHT = 80;
 const VISIBLE_ITEMS = 5;
 const CENTER_INDEX = Math.floor(VISIBLE_ITEMS / 2);
 
 export default function AgeScreen({ navigation }: any) {
   const route = useRoute();
-  const {gender} = route.params || {};
-  console.log("gender :" , gender)
-  const [selectedIndex, setSelectedIndex] = useState(4); 
+  const { gender } = route.params || {};
+  // Default to age 20
+  const defaultAge = 20;
+  const defaultIndex = AGES.indexOf(defaultAge);
+  const [selectedIndex, setSelectedIndex] = useState(defaultIndex);
   const flatListRef = useRef<FlatList>(null);
 
   const onScroll = (event: any) => {
@@ -60,7 +63,7 @@ export default function AgeScreen({ navigation }: any) {
       <View style={styles.pickerContainer}>
         <FlatList
           ref={flatListRef}
-          data={WEIGHTS}
+          data={AGES}
           keyExtractor={(item) => item.toString()}
           showsVerticalScrollIndicator={false}
           snapToInterval={ITEM_HEIGHT}
@@ -98,13 +101,18 @@ export default function AgeScreen({ navigation }: any) {
       </View>
       {/* Bottom Buttons */}
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.replace('Weight', { gender ,age : selectedIndex })}>
+        <TouchableOpacity
+          style={styles.continueBtn}
+          onPress={() => navigation.replace('Weight', { gender, age: AGES[selectedIndex] })}
+        >
           <Text style={styles.continueText}>Continue</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
+
+// ...existing
 
 const styles = StyleSheet.create({
   container: {

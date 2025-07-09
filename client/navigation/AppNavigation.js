@@ -9,7 +9,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import ForgetPassword from '../screens/ForgetPassword';
 import SecurityQuestions from '../screens/SecurityQuestions';
 import NewPassword from '../screens/NewPassword';
-import ExtraCredentialScreen from '../screens/ExtraCredentialScreen';
+// import ExtraCredentialScreen from '../screens/ExtraCredentialScreen';
 import GenderScreen from '../screens/credentialsPages/GenderScreen';
 import AgeScreen from '../screens/credentialsPages/AgeScreen';
 import HeightScreen from '../screens/credentialsPages/HeightScreen';
@@ -42,7 +42,7 @@ const AppNavigation = () => {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         {/* Extra credential after signup */}
-        <Stack.Screen name="ExtraCredential" component={ExtraCredentialScreen} />
+        {/* <Stack.Screen name="ExtraCredential" component={ExtraCredentialScreen} /> */}
         {/* Credentials flow */}
         <Stack.Screen name="Gender" component={GenderScreen} />
         <Stack.Screen name="Age" component={AgeScreen} />

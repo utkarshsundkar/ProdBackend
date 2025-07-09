@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
 const BUTTON_RADIUS = 12;
@@ -25,6 +26,9 @@ type RootStackParamList = {
 };
 
 export default function ExtraData() {
+  const route = useRoute();
+ const {gender,age,weight,height,activityLevel}=route.params;
+  console.log(gender,age,weight,height,activityLevel)
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [selectedGoal, setSelectedGoal] = useState('beginner');
   const [selectedGender, setSelectedGender] = useState('Male');
@@ -34,6 +38,10 @@ export default function ExtraData() {
   const currentStep = 1;
   const totalSteps = 10;
   const progress = currentStep / totalSteps;
+
+
+
+  
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -107,7 +115,7 @@ export default function ExtraData() {
         </Modal>
       </View>
 
-      <Text style={styles.sectionTitle}>Daily Activity Level</Text>
+      <Text style={styles.sectionTitle}>Current Fitness Level</Text>
       <View style={styles.buttonRow}>
         {activityLevels.map(level => (
           <SelectableButton
@@ -120,7 +128,7 @@ export default function ExtraData() {
       </View>
 
       <View style={{ flex: 1 }} />
-      <TouchableOpacity style={styles.nextButton} activeOpacity={0.8} onPress={() => navigation.navigate('Home')}>
+      <TouchableOpacity style={styles.nextButton} activeOpacity={0.8} onPress={() => navigation.replace('SecurityQuestions',{gender,age,weight,height,activityLevel,selectedGoal,selectedFrequency,selectedActivity})}>
         <Text style={styles.nextButtonText}>Next</Text>
       </TouchableOpacity>
     </ScrollView>

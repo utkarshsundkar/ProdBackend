@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
-const WEIGHTS = Array.from({ length: 9 }, (_, i) => 72 + i); // 72-80
+const WEIGHTS = Array.from({ length: 9 }, (_, i) => 30 + i); // 72-80
 const ITEM_HEIGHT = 80;
 const VISIBLE_ITEMS = 5;
 const CENTER_INDEX = Math.floor(VISIBLE_ITEMS / 2);
@@ -101,7 +101,7 @@ export default function WeightScreen({ navigation }: any) {
         <TouchableOpacity style={styles.skipBtn}>
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.replace('ActivityLevel')}>
+        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.replace('Height',{gender,age,weight:WEIGHTS[selectedIndex]})}>
           <Text style={styles.continueText}>Continue</Text>
         </TouchableOpacity>
       </View>
