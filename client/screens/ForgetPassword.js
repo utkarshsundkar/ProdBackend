@@ -102,9 +102,9 @@ const handleChangePassword = async (answer) => {
         )}
       </View>
       {/* Continue Button */}
-      <TouchableWithoutFeedback onPressIn={handleContinueIn} onPressOut={handleContinueOut}>
-        <Animated.View style={[styles.continueBtn, { transform: [{ scale: continueScale }] }]}>
-          <Text style={styles.continueBtnText} onPress={() => fetchOnboardingByEmail(email)}>Continue</Text>
+      <TouchableWithoutFeedback onPressIn={handleContinueIn} onPressOut={handleContinueOut} onPress={() => fetchOnboardingByEmail(email)}>
+        <Animated.View style={[styles.continueBtn, { transform: [{ scale: continueScale }] }]} >
+          <Text style={styles.continueBtnText} >Continue</Text>
         </Animated.View>
       </TouchableWithoutFeedback>
      </>)}
@@ -128,9 +128,9 @@ const handleChangePassword = async (answer) => {
             placeholderTextColor="#7D8A9C"
           />
           <View style={styles.underline} />
-          <TouchableWithoutFeedback onPressIn={handleContinueIn} onPressOut={handleContinueOut}>
+          <TouchableWithoutFeedback onPressIn={handleContinueIn} onPressOut={handleContinueOut} onPress={() => handleChangePassword(answer)}>
         <Animated.View style={[styles.continueBtn, { transform: [{ scale: continueScale }] }]}>
-          <Text style={styles.continueBtnText} onPress={() => handleChangePassword(answer)}>Change Password</Text>
+          <Text style={styles.continueBtnText} >Change Password</Text>
         </Animated.View>
       </TouchableWithoutFeedback>
 
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     width: '80%',
-    backgroundColor: '#0093D6',
+    backgroundColor: '#FE552C',
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
