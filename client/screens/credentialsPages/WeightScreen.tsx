@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useRoute } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -18,6 +19,9 @@ const VISIBLE_ITEMS = 5;
 const CENTER_INDEX = Math.floor(VISIBLE_ITEMS / 2);
 
 export default function WeightScreen({ navigation }: any) {
+  const route = useRoute();
+  const {gender,age} = route.params || {};
+  console.log("gender :" , gender , age)
   const [selectedIndex, setSelectedIndex] = useState(4); // Default to 76
   const flatListRef = useRef<FlatList>(null);
 

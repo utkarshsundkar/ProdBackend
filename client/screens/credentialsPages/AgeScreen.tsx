@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useRoute } from '@react-navigation/native'; 
 import {
   View,
   Text,
@@ -18,7 +19,10 @@ const VISIBLE_ITEMS = 5;
 const CENTER_INDEX = Math.floor(VISIBLE_ITEMS / 2);
 
 export default function AgeScreen({ navigation }: any) {
-  const [selectedIndex, setSelectedIndex] = useState(4); // Default to 76
+  const route = useRoute();
+  const {gender} = route.params || {};
+  console.log("gender :" , gender)
+  const [selectedIndex, setSelectedIndex] = useState(4); 
   const flatListRef = useRef<FlatList>(null);
 
   const onScroll = (event: any) => {
@@ -50,8 +54,8 @@ export default function AgeScreen({ navigation }: any) {
         <Text style={styles.stepText}>5/10</Text>
       </View>
       {/* Title */}
-      <Text style={styles.title}>Enter Your Weight</Text>
-      <Text style={styles.subtitle}>Please provide your weight in kilograms.</Text>
+      <Text style={styles.title}>Enter Your Age</Text>
+      <Text style={styles.subtitle}>Please provide your Age.</Text>
       {/* Picker */}
       <View style={styles.pickerContainer}>
         <FlatList
@@ -94,10 +98,7 @@ export default function AgeScreen({ navigation }: any) {
       </View>
       {/* Bottom Buttons */}
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.skipBtn}>
-          <Text style={styles.skipText}>Skip</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.replace('Height')}>
+        <TouchableOpacity style={styles.continueBtn} onPress={() => navigation.replace('Weight', { gender ,age : selectedIndex })}>
           <Text style={styles.continueText}>Continue</Text>
         </TouchableOpacity>
       </View>
@@ -219,20 +220,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 'auto',
     marginBottom: 24,
-  },
-  skipBtn: {
-    flex: 1,
-    backgroundColor: '#F3F6FD',
-    borderRadius: 24,
-    marginRight: 8,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  skipText: {
-    color: '#2563FF',
-    fontSize: 16,
-    fontWeight: '600',
   },
   continueBtn: {
     flex: 1,
