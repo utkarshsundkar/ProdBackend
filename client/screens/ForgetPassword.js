@@ -1,10 +1,16 @@
 import React, { useState, useRef } from 'react';
+import { useRoute } from '@react-navigation/native';
 import { StyleSheet, View, Text, TextInput, Pressable, SafeAreaView, TouchableWithoutFeedback, Animated, Dimensions } from 'react-native';
-
+import axios from 'axios';
+import { BASE_URL } from '../src/api.js'; // Adjust the import path as necessary
 const { width, height } = Dimensions.get('window');
 
 const ForgetPassword = ({ navigation }) => {
   const [email, setEmail] = useState('');
+  const [onboardingData, setOnboardingData] = useState(null);
+  const [answer, setAnswer] = useState('');
+  const [display, setDisplay] = useState(true);
+   
   const continueScale = useRef(new Animated.Value(1)).current;
   const handleContinueIn = () => {
     Animated.spring(continueScale, {
@@ -22,6 +28,46 @@ const ForgetPassword = ({ navigation }) => {
       bounciness: 6,
     }).start();
   };
+
+const fetchOnboardingByEmail = async (email) => {
+  try {
+    const response = await axios.post(`${BASE_URL}/onboarding/find-onboarding-by-email`,{ email });
+  
+
+    if (response.status === 200) {
+      console.log("✅ Onboarding Data:", response.data.data.securityQuestions);
+      setOnboardingData(response.data.data);
+      setDisplay(false);
+      return response.data.data;
+    } else {
+      console.warn("⚠️ Unexpected response:", response.status);
+      return null;
+    }
+
+  } catch (error) {
+    console.error("❌ Failed to fetch onboarding data:", error.message);
+    return null;
+  }
+};
+
+const handleChangePassword = async (answer) => {
+  console.log("🔐 Changing password for email:", email);
+  if (!answer) {
+    console.warn("⚠️ Answer is required to change password");
+    return;
+  }
+  if (answer === onboardingData.securityQuestionsAnswer) {
+    console.log(onboardingData.securityQuestionsAnswer);
+    console.log("✅ Answer is correct, proceed to change password");
+    // Here you can navigate to the change password screen or perform the change password logic
+    navigation.navigate('NewPassword', { email });
+  }else {
+    console.warn("❌ Incorrect answer provided");
+    alert("Incorrect answer provided. Please try again.");
+  }
+  
+}
+
   const showInvalid = email.length > 0 && !email.includes('@');
   return (
     <SafeAreaView style={styles.container}>
@@ -35,6 +81,7 @@ const ForgetPassword = ({ navigation }) => {
         </Pressable>
       </View> */}
       {/* Title */}
+     { display && (<>
       <Text style={styles.title}>Forget Password!</Text>
       {/* Subheading */}
       {/* <Text style={styles.subheading}>Enter your email we will send you code on your email</Text> */}
@@ -56,11 +103,43 @@ const ForgetPassword = ({ navigation }) => {
       </View>
       {/* Continue Button */}
       <TouchableWithoutFeedback onPressIn={handleContinueIn} onPressOut={handleContinueOut}>
-        <Animated.View style={[styles.continueBtn, { transform: [{ scale: continueScale }] }]}> 
-          <Text style={styles.continueBtnText}>Continue</Text>
+        <Animated.View style={[styles.continueBtn, { transform: [{ scale: continueScale }] }]}>
+          <Text style={styles.continueBtnText} onPress={() => fetchOnboardingByEmail(email)}>Continue</Text>
         </Animated.View>
       </TouchableWithoutFeedback>
+     </>)}
+
+      {onboardingData && (
+        <View>
+        <View style={{ marginTop: 40, alignItems: 'center' }}>
+          <Text style={{ fontSize: 26, color: '#031B4E' }}>Security Question:</Text>
+          <Text style={{ fontSize: 24, color: '#031B4E', fontWeight: 'bold' }}>{JSON.stringify(onboardingData.securityQuestions, null, 2)}</Text>
+        </View>
+        {/* Get input from user and send to backend */}
+        <View style={{ marginTop: 20, alignItems: 'center' }}>
+          <Text style={{ fontSize: 26, color: '#031B4E' }}>Answer:</Text>
+          <TextInput
+            style={styles.emailInput}
+            value={answer}
+            onChangeText={setAnswer}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            placeholder="Your answer"
+            placeholderTextColor="#7D8A9C"
+          />
+          <View style={styles.underline} />
+          <TouchableWithoutFeedback onPressIn={handleContinueIn} onPressOut={handleContinueOut}>
+        <Animated.View style={[styles.continueBtn, { transform: [{ scale: continueScale }] }]}>
+          <Text style={styles.continueBtnText} onPress={() => handleChangePassword(answer)}>Change Password</Text>
+        </Animated.View>
+      </TouchableWithoutFeedback>
+
+        </View>
+        </View>
+
+      )}
     </SafeAreaView>
+
   );
 };
 

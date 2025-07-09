@@ -1,6 +1,12 @@
 import React, { useState, useRef } from 'react';
+import { Alert } from 'react-native';
 import { StyleSheet, View, Text, TextInput, Pressable, SafeAreaView, Animated, Dimensions } from 'react-native';
 
+import { useNavigation } from '@react-navigation/native';
+
+import axios from 'axios';
+import { BASE_URL } from '../src/api';
+import { useRoute } from '@react-navigation/native';
 const { width, height } = Dimensions.get('window');
 
 type Props = {
@@ -11,6 +17,9 @@ type Props = {
 const ChangePassword: React.FC<Props> = ({ onBack, onContinue }) => {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+   const route = useRoute();
+    const { email } = route.params;
+  const navigation = useNavigation();
   const continueScale = useRef(new Animated.Value(1)).current;
   const handleContinueIn = () => {
     Animated.spring(continueScale, {
@@ -27,19 +36,38 @@ const ChangePassword: React.FC<Props> = ({ onBack, onContinue }) => {
       speed: 40,
       bounciness: 6,
     }).start();
-    onContinue();
+    // onContinue();
   };
+ const handleChangePassword = async() => {
+  if (password !== confirm) {
+    alert("Passwords do not match. Please try again.");
+    return;
+    
+  }
+
+  console.log(email);
+  try {
+
+    const response= await axios.post(`${BASE_URL}/users/change-password`, {email, newPassword: password });
+    if (response.status === 200) {
+      Alert.alert("Success", "Your password has been changed successfully.");
+      navigation.navigate('Sign In'); // Navigate to the login screen after changing the password
+    } else {
+      Alert.alert("Error", "Failed to change password. Please try again.");
+    }
+
+  } catch (error) {
+    console.error("Error changing password:", error);
+    Alert.alert("Error", "There was an error changing your password. Please try again later.");
+    
+  }
+  //
+ }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Bar */}
-      <View style={styles.topBar}>
-        <Pressable onPress={onBack} hitSlop={10} style={styles.backBtn}>
-          <Text style={styles.backArrow}>{'←'}</Text>
-        </Pressable>
-        <Pressable style={styles.helpBtn}>
-          <Text style={styles.helpText}>Need Help?</Text>
-        </Pressable>
-      </View>
+      
       {/* Title */}
       <Text style={styles.title}>Change Password</Text>
       <Text style={styles.subheading}>Enter your new password</Text>
@@ -68,14 +96,14 @@ const ChangePassword: React.FC<Props> = ({ onBack, onContinue }) => {
       </View>
       {/* Continue Button */}
       <Pressable
-        onPressIn={handleContinueIn}
-        onPressOut={handleContinueOut}
+        // onPressIn={handleContinueIn}
+        // onPressOut={handleContinueOut}
         style={({ pressed }) => [
           styles.continueBtn,
           pressed && { transform: [{ scale: 0.96 }] }
         ]}
       >
-        <Text style={styles.continueBtnText}>Continue</Text>
+        <Text style={styles.continueBtnText} onPress={()=>handleChangePassword()}>Continue</Text>
       </Pressable>
     </SafeAreaView>
   );
