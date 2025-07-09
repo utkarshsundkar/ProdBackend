@@ -81,7 +81,7 @@ const RegisterScreen = () => {
       <Pressable onPress={handleRegister} style={({ pressed }) => [styles.signInBtn, pressed && { transform: [{ scale: 0.96 }] }] }>
         <Text style={styles.signInBtnText}>Register</Text>
       </Pressable>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.forgotBtn}>
+      <TouchableOpacity onPress={() => navigation.navigate('Sign In')} style={styles.forgotBtn}>
         <Text style={styles.forgotText}>Already have an account? Sign In</Text>
       </TouchableOpacity>
     </SafeAreaView>
