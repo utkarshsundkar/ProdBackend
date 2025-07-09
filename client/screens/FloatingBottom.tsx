@@ -19,7 +19,7 @@ export default function FloatingBottom({ page, totalPages, navigation }: Floatin
         ))}
       </View>
       <View style={styles.authButtons}>
-        <TouchableOpacity style={styles.loginButton} onPress={() => navigation.navigate('Sign In')}>
+        <TouchableOpacity style={styles.loginButton} onPress={() => navigation.navigate('Login')}>
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.signupButton} onPress={() => navigation.navigate('Register')}>

@@ -2,6 +2,7 @@ import React, { useContext, useState } from "react";
 import { StyleSheet, View, Text, TextInput, Pressable, SafeAreaView, Dimensions, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import AuthContext from "../context/AuthContext.js";
+import { saveOnboardingData } from '../src/onboardingApi';
 
 const { width, height } = Dimensions.get('window');
 
@@ -21,15 +22,21 @@ const RegisterScreen = () => {
       setError("All fields are required");
       return;
     }
-    console.log('Register payload:', { username, email, password });
     try {
       const successResult = await register(username, email, password);
       if (successResult) {
+        // Save onboarding data after successful registration
+        try {
+          await saveOnboardingData({ username, email });
+        } catch (err) {
+          setError("Failed to save onboarding data.");
+          return;
+        }
         setError("");
-        setSuccess("Registration successful! Please sign in.");
+        setSuccess("Registration successful! Redirecting...");
         setTimeout(() => {
-          navigation.replace("Sign In");
-        }, 1200);
+          navigation.replace("ExtraCredential");
+        }, 800);
       } else {
         setError("Registration failed. Please check your details.");
       }

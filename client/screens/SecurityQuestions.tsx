@@ -15,7 +15,7 @@ type Props = {
   onContinue: (question: string, answer: string) => void;
 };
 
-const Verification: React.FC<Props> = ({ onBack, onContinue }) => {
+const SecurityQuestions: React.FC<Props> = ({ onBack, onContinue }) => {
   const [selectedQuestion, setSelectedQuestion] = useState<string>(SECURITY_QUESTIONS[0]);
   const [answer, setAnswer] = useState('');
 
@@ -171,4 +171,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Verification; 
+export default SecurityQuestions; 
