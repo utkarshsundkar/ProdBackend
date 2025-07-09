@@ -8,7 +8,7 @@ const onboardingSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    Age: {
+    age: {
       type: Number,
       required: true,
     },
