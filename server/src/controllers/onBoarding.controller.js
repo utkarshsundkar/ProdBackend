@@ -36,13 +36,13 @@ const findOnboardingByEmail = asyncHandler(async (req, res) => {
   if (!email) {
     throw new ApiError(400, "Email is required");
   }
-  const user = await User.findOne({ email }).select("-password -refreshToken").populate("onBoarding");
+  const user = await User.findOne({ email }).select("-password -refreshToken").populate("onboarding");
     console.log("user", user);
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
-  const onBoarding = await Onboarding.findOne({});
+  const onBoarding = await Onboarding.findOne({_id:user.onboarding._id});
   console.log("onBoarding", onBoarding);
 
     if (!onBoarding) {

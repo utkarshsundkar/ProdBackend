@@ -1,6 +1,7 @@
 import React, { useState, useContext } from "react";
 import { StyleSheet, View, Text, TextInput, Pressable, SafeAreaView, Dimensions, TouchableOpacity } from "react-native";
 import AuthContext from "../context/AuthContext.js";
+import Icon from 'react-native-vector-icons/Ionicons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -71,7 +72,11 @@ const LoginScreen = ({ navigation }) => {
             secureTextEntry={!showPassword}
           />
           <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeBtn} hitSlop={10}>
-            <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
+            <Icon
+          name={showPassword ? 'eye' : 'eye-off'}
+          size={24}
+          color="#333"
+        />
           </TouchableOpacity>
         </View>
         <View style={styles.underline} />
@@ -97,7 +102,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 24,
-    paddingTop: height * 0.03,
+    paddingTop: height * 0.06,
     alignItems: 'center',
   },
   topBar: {
