@@ -108,6 +108,11 @@ const saveFocusExercise = asyncHandler(async (req, res) => {
     });
 
     // 3. Add exercise to focus session
+      await FocusSession.findByIdAndUpdate(focusSession._id, {
+  $inc: {
+    imperfectReps: newExercise.reps_performed - newExercise.reps_performed_perfect
+  }
+});
     await FocusSession.findByIdAndUpdate(
         focusSession._id,
         { $push: { exercises: newExercise._id } }
@@ -161,6 +166,12 @@ const updateExerciseProgress = asyncHandler(async (req, res) => {
   if (!targetExercise) {
     return res.status(404).json({ error: 'No incomplete matching exercise found in the current session.' });
   }
+
+   await FocusSession.findByIdAndUpdate(focusSession._id, {
+  $inc: {
+    imperfectReps: targetExercise.reps_performed - targetExercise.reps_performed_perfect
+  }
+});
 
   // Determine if reps are perfect
   const isComplete = reps_performed === reps_performed_perfect;

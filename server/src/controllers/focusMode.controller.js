@@ -138,13 +138,7 @@ export const checkAndFinalizePreviousFocusSession = asyncHandler(
       }
 
       // Step 3: Calculate imperfect reps
-      const creditsToDeduct = focusSession.exercises.reduce(
-        (total, exercise) => {
-          const imperfect = exercise.reps_performed_perfect;
-          return imperfect > 0 ? total + imperfect : total;
-        },
-        0
-      );
+       const creditsToDeduct = focusSession.imperfectReps * 2;
 
       // Step 4: Deduct credits from user if needed
       if (creditsToDeduct > 0) {
