@@ -26,12 +26,7 @@ const RegisterScreen = () => {
       const successResult = await register(username, email, password);
       if (successResult) {
         // Save onboarding data after successful registration
-        try {
-          await saveOnboardingData({ username, email });
-        } catch (err) {
-          setError("Failed to save onboarding data.");
-          return;
-        }
+       
         setError("");
         setSuccess("Registration successful! Redirecting...");
         setTimeout(() => {
