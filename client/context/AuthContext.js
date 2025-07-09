@@ -71,7 +71,7 @@ export const AuthProvider = ({ children }) => {
       const user = res.data.data;
       if (!user) return false;
       // Do not setUser here; require login after registration
-      return true;
+      return res;
     } catch (err) {
       console.error('Register error:', err);
       return false;

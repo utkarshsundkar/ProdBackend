@@ -24,13 +24,12 @@ const RegisterScreen = () => {
     }
     try {
       const successResult = await register(username, email, password);
+      // console.log('Registering user:', successResult.data.data._id);
       if (successResult) {
-        // Save onboarding data after successful registration
-       
         setError("");
         setSuccess("Registration successful! Redirecting...");
         setTimeout(() => {
-          navigation.replace("ExtraCredential");
+          navigation.replace("Gender");
         }, 800);
       } else {
         setError("Registration failed. Please check your details.");
