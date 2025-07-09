@@ -3,6 +3,11 @@ import mongoose from 'mongoose';
 const diySchema = new mongoose.Schema(
     {
           userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        name: {
+            type: String,
+            required: true,
+            trim: true
+        },
         day: {
             type: String,
             required: true,
