@@ -1,5 +1,19 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, Pressable, SafeAreaView, Dimensions, TouchableOpacity } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import AuthContext from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { BASE_URL } from '../src/api';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  SafeAreaView,
+  Dimensions,
+  TouchableOpacity,
+} from 'react-native';
 
 const { height } = Dimensions.get('window');
 
@@ -10,42 +24,97 @@ const SECURITY_QUESTIONS = [
   'What is your favorite food?',
 ];
 
-type Props = {
-  onBack: () => void;
-  onContinue: (question: string, answer: string) => void;
-};
-
-const SecurityQuestions: React.FC<Props> = ({ onBack, onContinue }) => {
-  const [selectedQuestion, setSelectedQuestion] = useState<string>(SECURITY_QUESTIONS[0]);
+const SecurityQuestions = () => {
+  const [selectedQuestion, setSelectedQuestion] = useState(SECURITY_QUESTIONS[0]);
   const [answer, setAnswer] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const { setUser, saveOnboardingData } = useContext(AuthContext);
+  const navigation: any = useNavigation()
+  const route = useRoute();
+
+  const {
+    gender,
+    age,
+    weight,
+    height: userHeight,
+    activityLevel,
+    selectedGoal,
+    selectedFrequency,
+    selectedActivity,
+  } = route.params || {};
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const id = await AsyncStorage.getItem('tempUserId');
+        setUserId(id);
+      } catch (error) {
+        console.error('Error fetching tempUserId:', error);
+      }
+    };
+    fetchUserId();
+  }, []);
+
+  const handleOnboarding = async () => {
+    try {
+      await saveOnboardingData(
+        userId,
+        age,
+        userHeight,
+        weight,
+        gender,
+        activityLevel,
+        selectedGoal,
+        selectedFrequency,
+        selectedActivity,
+        selectedQuestion,
+        answer
+      );
+      console.log('Onboarding complete');
+      navigation.replace('Home');
+    } catch (error) {
+      console.error('Onboarding error:', error);
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.caContainer}>
-      {/* Top Bar */}
-      <View style={styles.caTopBar}>
-        <Pressable onPress={onBack} hitSlop={10} style={styles.caBackBtn}>
-          <Text style={styles.caBackArrow}>{'←'}</Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.topBar}>
+        <Pressable hitSlop={10} style={styles.backBtn}>
+          <Text style={styles.backArrow}>{'←'}</Text>
         </Pressable>
-        <Pressable style={styles.caHelpBtn}>
-          <Text style={styles.caHelpText}>Need Help?</Text>
+        <Pressable style={styles.helpBtn}>
+          <Text style={styles.helpText}>Need Help?</Text>
         </Pressable>
       </View>
-      {/* Title */}
-      <Text style={styles.verificationTitle}>Security Question</Text>
-      <Text style={styles.verificationSubtext}>Select your security question and provide the answer</Text>
-      {/* Security Question List */}
+
+      <Text style={styles.title}>Security Question</Text>
+      <Text style={styles.subtext}>
+        Select your security question and provide the answer
+      </Text>
+
       <View style={styles.questionList}>
         {SECURITY_QUESTIONS.map((q, idx) => (
           <TouchableOpacity
             key={idx}
-            style={[styles.questionBtn, selectedQuestion === q && styles.selectedQuestionBtn]}
+            style={[
+              styles.questionBtn,
+              selectedQuestion === q && styles.selectedQuestionBtn,
+            ]}
             onPress={() => setSelectedQuestion(q)}
           >
-            <Text style={[styles.questionText, selectedQuestion === q && styles.selectedQuestionText]}>{q}</Text>
+            <Text
+              style={[
+                styles.questionText,
+                selectedQuestion === q && styles.selectedQuestionText,
+              ]}
+            >
+              {q}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
-      {/* Answer Input */}
+
       <TextInput
         style={styles.answerInput}
         value={answer}
@@ -53,65 +122,65 @@ const SecurityQuestions: React.FC<Props> = ({ onBack, onContinue }) => {
         placeholder="Your Answer"
         placeholderTextColor="#7D8A9C"
       />
-      {/* Continue Button */}
+
       <Pressable
-        onPress={() => onContinue(selectedQuestion, answer)}
-        style={({ pressed }: { pressed: boolean }) => [
-          styles.caSignUpBtn,
-          pressed && { transform: [{ scale: 0.96 }] }
+        onPress={handleOnboarding}
+        style={({ pressed }) => [
+          styles.continueBtn,
+          pressed && { transform: [{ scale: 0.96 }] },
         ]}
       >
-        <Text style={styles.caSignUpBtnText}>Continue</Text>
+        <Text style={styles.continueBtnText}>Continue</Text>
       </Pressable>
     </SafeAreaView>
   );
 };
 
+export default SecurityQuestions;
+
 const styles = StyleSheet.create({
-  caContainer: {
+  container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 24,
     paddingTop: height * 0.06,
     alignItems: 'center',
   },
-  caTopBar: {
+  topBar: {
     flexDirection: 'row',
     width: '100%',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 32,
   },
-  caBackBtn: {
+  backBtn: {
     padding: 4,
   },
-  caBackArrow: {
+  backArrow: {
     fontSize: 24,
     color: '#7D8A9C',
     fontWeight: 'bold',
   },
-  caHelpBtn: {
+  helpBtn: {
     padding: 4,
   },
-  caHelpText: {
+  helpText: {
     color: '#7D8A9C',
     fontSize: 14,
     fontWeight: '500',
   },
-  verificationTitle: {
+  title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#031B4E',
     textAlign: 'center',
     marginBottom: 8,
-    fontFamily: 'System',
   },
-  verificationSubtext: {
+  subtext: {
     fontSize: 14,
     color: '#7D8A9C',
     textAlign: 'center',
     marginBottom: 32,
-    fontFamily: 'System',
   },
   questionList: {
     width: '100%',
@@ -150,25 +219,22 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingHorizontal: 12,
   },
-  caSignUpBtn: {
+  continueBtn: {
     width: '85%',
     backgroundColor: '#0093D6',
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
   },
-  caSignUpBtnText: {
+  continueBtnText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 18,
     letterSpacing: 0.5,
   },
 });
-
-export default SecurityQuestions; 

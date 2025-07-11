@@ -18,7 +18,7 @@ const ACTIVITY_LEVELS = [
   },
   {
     emoji: '🚶‍♂️',
-    title: 'Moderately',
+    title: 'Moderate',
     subtitle: 'Exercise or sports 1-3 days a week',
   },
   {

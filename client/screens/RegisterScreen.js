@@ -1,51 +1,66 @@
-import React, { useContext, useState } from "react";
-import { StyleSheet, View, Text, TextInput, Pressable, SafeAreaView, Dimensions, TouchableOpacity } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import AuthContext from "../context/AuthContext.js";
-import { saveOnboardingData } from '../src/onboardingApi';
-
-const { width, height } = Dimensions.get('window');
+import React, {useContext, useState} from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  SafeAreaView,
+  Dimensions,
+  TouchableOpacity,
+} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import AuthContext from '../context/AuthContext.js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+const {height} = Dimensions.get('window');
 
 const RegisterScreen = () => {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const { register } = useContext(AuthContext);
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const {register} = useContext(AuthContext);
+  const {setTempUserId} = useContext(AuthContext);
   const navigation = useNavigation();
 
   const handleRegister = async () => {
-    setError("");
-    setSuccess("");
+    setError('');
+    setSuccess('');
     if (!username || !email || !password) {
-      setError("All fields are required");
+      setError('All fields are required');
       return;
     }
     try {
       const successResult = await register(username, email, password);
       // console.log('Registering user:', successResult.data.data._id);
-      if (successResult) {
-        setError("");
-        setSuccess("Registration successful! Redirecting...");
-        setTimeout(() => {
-          navigation.replace("Gender");
-        }, 800);
-      } else {
-        setError("Registration failed. Please check your details.");
-      }
-    } catch (err) {
-      setError("Registration failed. Please check your details.");
-      console.error('Registration error:', err);
+      if (successResult && successResult.data && successResult.data.data) {
+      const newUserId = successResult.data.data._id; 
+      await AsyncStorage.setItem('tempUserId', newUserId);
+      setTimeout(() => {
+        navigation.replace('Gender'); 
+      }, 800);
+    } else {
+      setError('Registration failed. Please check your details.');
     }
-  };
+  } catch (err) {
+    setError('Registration failed. Please check your details.');
+    console.error('Registration error:', err);
+  }
+};
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Register</Text>
-      <Text style={styles.subheading}>Fill the details to create an account</Text>
-      {success ? <Text style={{ color: 'green', marginBottom: 10 }}>{success}</Text> : null}
-      {error ? <Text style={{ color: 'red', marginBottom: 10 }}>{error}</Text> : null}
+      <Text style={styles.subheading}>
+        Fill the details to create an account
+      </Text>
+      {success ? (
+        <Text style={{color: 'green', marginBottom: 10}}>{success}</Text>
+      ) : null}
+      {error ? (
+        <Text style={{color: 'red', marginBottom: 10}}>{error}</Text>
+      ) : null}
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>USERNAME</Text>
         <TextInput
@@ -79,10 +94,17 @@ const RegisterScreen = () => {
         />
         <View style={styles.underline} />
       </View>
-      <Pressable onPress={handleRegister} style={({ pressed }) => [styles.signInBtn, pressed && { transform: [{ scale: 0.96 }] }] }>
+      <Pressable
+        onPress={handleRegister}
+        style={({pressed}) => [
+          styles.signInBtn,
+          pressed && {transform: [{scale: 0.96}]},
+        ]}>
         <Text style={styles.signInBtnText}>Register</Text>
       </Pressable>
-      <TouchableOpacity onPress={() => navigation.navigate('Sign In')} style={styles.forgotBtn}>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('Sign In')}
+        style={styles.forgotBtn}>
         <Text style={styles.forgotText}>Already have an account? Sign In</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -147,7 +169,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,

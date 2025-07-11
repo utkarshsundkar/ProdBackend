@@ -4,10 +4,8 @@ import Joi from "joi";
 const onboardingSchema = Joi.object({
   userId: Joi.string().required(),
 
-  dob: Joi.date().less("now").required().messages({
-    "date.base": "Date of birth must be a valid date.",
-    "date.less": "Date of birth cannot be in the future.",
-    "any.required": "Date of birth is required.",
+  age: Joi.date().less("now").required().messages({
+    "any.required": "age is required.",
   }),
 
   height: Joi.number().positive().required().messages({
@@ -22,14 +20,14 @@ const onboardingSchema = Joi.object({
     "any.required": "Weight is required.",
   }),
 
-  gender: Joi.string().valid("male", "female", "other").required().messages({
+  gender: Joi.string().valid("Male", "Female").required().messages({
     "string.base": "Gender must be a string.",
     "any.required": "Gender is required.",
   }),
 
   primaryGoal: Joi.string(),
 
-  workoutFrequency: Joi.number().integer().min(1).required().messages({
+  workoutFrequency: Joi.required().messages({
     "number.base": "Workout frequency must be a number.",
     "number.integer": "Workout frequency must be an integer.",
     "number.min": "Workout frequency must be at least 1.",
@@ -42,7 +40,7 @@ const onboardingSchema = Joi.object({
   }),
 
   dailyActivityLevel: Joi.string()
-    .valid("low", "moderate", "high")
+    .valid("Low", "Moderate", "High")
     .required()
     .messages({
       "string.base": "Daily activity level must be a string.",

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRoute } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -11,6 +12,8 @@ import femaleImg from "../../assets/female.png"
 
 const GenderScreen = ({ navigation }) => {
   const [selectedGender, setSelectedGender] = useState(null);
+  const route = useRoute();
+    const { userId } = route.params || {};
 
   const handleContinue = () => {
     if (selectedGender) {

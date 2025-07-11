@@ -16,7 +16,7 @@ const SELECTED_BG_COLOR = PRIMARY_COLOR;
 const SECTION_MARGIN = 24;
 const BUTTON_MARGIN = 12;
 
-const fitnessGoals = ['Weight Loss', 'Muscle Gain', 'Maintain'];
+const fitnessGoals = ['weight loss', 'muscle gain', 'maintain'];
 
 const workoutFrequencies = ['1-2 times/week', '3-4 times/week', '5+ times/week'];
 const activityLevels = ['beginner', 'intermediate', 'advanced'];
@@ -26,7 +26,7 @@ type RootStackParamList = {
 };
 
 export default function ExtraData() {
-  const route = useRoute();
+  const route = useRoute(); 
  const {gender,age,weight,height,activityLevel}=route.params;
   console.log(gender,age,weight,height,activityLevel)
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();

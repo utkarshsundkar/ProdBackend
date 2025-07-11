@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import {User} from "./user.model.js"; // Assuming you have a User model
+import { User } from "./user.model.js"; // Assuming you have a User model
 const onboardingSchema = new mongoose.Schema(
   {
     userId: {
@@ -27,16 +27,12 @@ const onboardingSchema = new mongoose.Schema(
     gender: {
       type: String,
       required: true,
-      enum : ["male" , "female"],
+      enum: ["Male", "Female"],
     },
     primaryGoal: {
       type: String,
       required: true,
-      enum: [
-        "weight loss",
-        "muscle gain",
-        "maintain current weight",
-      ],
+      enum: ["weight loss", "muscle gain", "maintain"],
     },
     workoutFrequency: {
       type: String, // Number of days per week, etc.
@@ -45,34 +41,28 @@ const onboardingSchema = new mongoose.Schema(
     currentFitnessLevel: {
       type: String,
       required: true,
-      enum: [
-        "beginner",
-        "intermediate",
-        "advanced",
-      ],
+      enum: ["beginner", "intermediate", "advanced"],
     },
     dailyActivityLevel: {
       type: String,
       required: true,
+      enum: ["Low", "Moderate", "High"],
+    },
+    securityQuestions: {
+      type: String,
+      required: true,
       enum: [
-        "low",
-        "moderate",
-        "high"
-      ]
+        "What is your mother's maiden name?",
+        "What was the name of your first pet?",
+        "What was the name of your elementary school?",
+        "What is your favorite food?",
+      ],
     },
-    securityQuestions : {
-      type : String , 
-      required : true,
-      enum: ["What is your favorite food?",
-        "What is your first pet's name?", 
-        "What is your mother's maiden name?", 
-        "what was the name of your first school?"
-      ]
+
+    securityQuestionsAnswer: {
+      type: String,
+      required: true,
     },
-    securityQuestionsAnswer : {
-      type : String , 
-      required : true,
-    }
   },
   { timestamps: true }
 );
@@ -80,7 +70,7 @@ const onboardingSchema = new mongoose.Schema(
 onboardingSchema.post("save", async function (doc, next) {
   try {
     await User.findByIdAndUpdate(doc.userId, {
-      $set: { onboarding: doc._id }
+      $set: { onboarding: doc._id },
     });
     next();
   } catch (error) {
@@ -88,7 +78,6 @@ onboardingSchema.post("save", async function (doc, next) {
     next(error);
   }
 });
-
 
 const Onboarding = mongoose.model("Onboarding", onboardingSchema);
 export default Onboarding;
