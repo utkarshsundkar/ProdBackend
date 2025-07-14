@@ -6,7 +6,6 @@ dotenv.config({
 })
 
 
-
 connectDB()
 .then(() => {
     app.listen(process.env.PORT , "0.0.0.0" , () => {
