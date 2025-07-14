@@ -51,7 +51,7 @@ const ChangePassword: React.FC<Props> = ({ onBack, onContinue }) => {
     const response= await axios.post(`${BASE_URL}/users/change-password`, {email, newPassword: password });
     if (response.status === 200) {
       Alert.alert("Success", "Your password has been changed successfully.");
-      navigation.navigate('Sign In'); // Navigate to the login screen after changing the password
+      navigation.navigate('Login'); // Navigate to the login screen after changing the password
     } else {
       Alert.alert("Error", "Failed to change password. Please try again.");
     }

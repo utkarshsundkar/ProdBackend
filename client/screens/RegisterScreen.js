@@ -103,7 +103,7 @@ const RegisterScreen = () => {
         <Text style={styles.signInBtnText}>Register</Text>
       </Pressable>
       <TouchableOpacity
-        onPress={() => navigation.navigate('Sign In')}
+        onPress={() => navigation.navigate('Login')}
         style={styles.forgotBtn}>
         <Text style={styles.forgotText}>Already have an account? Sign In</Text>
       </TouchableOpacity>

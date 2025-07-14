@@ -1,8 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { useRoute } from '@react-navigation/native';
 import { StyleSheet, View, Text, TextInput, Pressable, SafeAreaView, TouchableWithoutFeedback, Animated, Dimensions } from 'react-native';
 import axios from 'axios';
-import { BASE_URL } from '../src/api.js'; // Adjust the import path as necessary
+import { BASE_URL } from '../src/api.js';
 const { width, height } = Dimensions.get('window');
 
 const ForgetPassword = ({ navigation }) => {
