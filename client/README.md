@@ -1,54 +1,67 @@
-# ArthleteV1
+# [react-native-smkit-ui demo](https://github.com/sency-ai/smkit-sdk)
 
-ArthleteV1 is a application designed to help athletes track, manage, and improve their performance. Built with a modern tech stack, it offers an intuitive interface and powerful features for users.
+- [npm](https://www.npmjs.com/package/@sency/react-native-smkit-ui)
 
-## Features
+## Version: 0.3.0
 
-- User authentication and profile management
-- Workout and activity tracking
-- Progress visualization with charts and stats
-- Goal setting and achievement tracking
-- Responsive design for desktop and mobile
+1. [ Installation ](#inst)
+2. [ Setup ](#setup)
+3. [ API ](#api)
+4. [ Data ](#data)
 
-## Tech Stack
+<a name="inst"></a>
 
-- **Frontend:** React Native
-- **Backend:** Node.js, Express
-- **Database:** MongoDB
-- **Styling:** CSS/SCSS
+## 1. Installation
 
-## Getting Started
+run `npm install @sency/react-native-smkit-ui`
 
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/yourusername/ArthleteV1.git
-    ```
-2. Install dependencies:
-    ```bash
-    cd ArthleteV1/client
-    npm install
-    ```
-3. Start the development server:
-    ```bash
-    npm start
-    ```
+## 2. Setup <a name="setup"></a>
 
-## Folder Structure
+- [iOS](https://github.com/sency-ai/smkit-ui-react-native-demo/blob/main/docs/ios-setup.md)
+- [Android](https://github.com/sency-ai/smkit-ui-react-native-demo/blob/main/docs/android-setup.md)
 
-```
-client/
-  ├── public/
-  ├── src/
-  │   ├── components/
-  │   ├── pages/
-  │   └── App.js
-  └── README.md
+## 3. API<a name="api"></a>
+
+### 1. Configure <a name="conf"></a>
+
+```js
+[1] First import configure
+import { configure } from '@sency/react-native-smkit-ui/src/index.tsx';
+
+[2] then call the configure function with your auth key
+try{
+  var res = await configure("YOUR_AUTH_KEY");
+ }catch (e) {
+  console.error(e);
+}
 ```
 
-## Contributing
+To reduce wait time we recommend to call `configure` on app launch.
 
-Contributions are welcome! Please open issues or submit pull requests for improvements.
+**⚠️ smkit_ui_library will not work if you don't first call configure.**
 
-## License
+## 2. Start <a name="start"></a>
 
-This project is licensed under the MIT License.
+#### [Start Assessment](#data)
+
+- [Start Assessment](https://github.com/sency-ai/smkit-ui-react-native-demo/blob/main/Assessment.md)
+
+- [Start Workout](https://github.com/sency-ai/smkit-ui-react-native-demo/blob/main/Workout.md)
+
+- [Build Your Own Assessment](https://github.com/sency-ai/smkit-ui-react-native-demo/blob/main/CustomizedAssessment.md)
+
+- [Workout From Program](https://github.com/sency-ai/smkit-ui-react-native-demo/blob/main/wfp.md)
+
+##Data <a name="data"></a>
+
+### AssessmentTypes
+
+| Name (enum) | Description                                                                                                                                                                    | More info                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Fitness     | For individuals of any activity level who seek to enhance their physical abilities, strength, and endurance through a tailored plan.                                           | [Link](https://github.com/sency-ai/smkit-sdk/blob/main/Assessments/AI-Fitness-Assessment.md) |
+| Body360     | Designed for individuals of any age and activity level, this assessment determines the need for a preventative plan or medical support.                                        | [Link](https://github.com/sency-ai/smkit-sdk/blob/main/Assessments/360-Body-Assessment.md)   |
+| Strength    | For individuals of any activity level who seek to assess their strength capabilities (core and endurance) \* This assessment will be available soon. Contact us for more info. | [Link](https://github.com/sency-ai/smkit-sdk/blob/main/Assessments/Strength.md)              |
+| Cardio      | For individuals of any activity level who seek to assess their cardiovascular capabilities \* This assessment will be available soon. Contact us for more info.                | [Link](https://github.com/sency-ai/smkit-sdk/blob/main/Assessments/Cardio.md)                |
+| Custom      | If Sency created a tailored assessment for you, you probably know it, and you should use this enum.                                                                            |                                                                                              |
+
+Having issues? [Contact us](mailto:support@sency.ai) and let us know what the problem is.

@@ -2,8 +2,6 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AuthContext from '../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import { BASE_URL } from '../src/api';
 import {
   StyleSheet,
   View,

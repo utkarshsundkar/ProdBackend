@@ -5,7 +5,7 @@ import { StyleSheet, View, Text, TextInput, Pressable, SafeAreaView, Animated, D
 import { useNavigation } from '@react-navigation/native';
 
 import axios from 'axios';
-import { BASE_URL } from '../src/api';
+import { BASE_URL } from '../src/api.js'; 
 import { useRoute } from '@react-navigation/native';
 const { width, height } = Dimensions.get('window');
 
