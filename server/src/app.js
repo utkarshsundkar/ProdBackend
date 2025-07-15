@@ -1,10 +1,10 @@
 import express from "express"
 import cors from "cors"
 import mongoSanitize from "express-mongo-sanitize"
+import axios from 'axios';
 
 const app = express()
 
-const axios = require('axios');
 const SELF_URL = 'https://your-app-name.onrender.com';
 setInterval(() => {
   axios.get(SELF_URL)
