@@ -4,12 +4,8 @@ import {app} from './src/app.js'
 dotenv.config({
     path: './.env'
 })
-
-// index.js or app.js
-
-const express = require('express');
+import express from 'express';
 const app = express();
-
 // your routes and middleware here...
 
 // Add this at the bottom
