@@ -4,6 +4,15 @@ import mongoSanitize from "express-mongo-sanitize"
 
 const app = express()
 
+const axios = require('axios');
+const SELF_URL = 'https://your-app-name.onrender.com';
+setInterval(() => {
+  axios.get(SELF_URL)
+    .then(() => console.log(`[PING] Self-pinged at ${new Date().toLocaleTimeString()}`))
+    .catch((err) => console.error('[PING ERROR]', err.message));
+}, 14 * 60 * 1000);
+
+
 // app.use((req, res, next) => {
 //     console.log(`Received ${req.method} request to ${req.url}`);
 //     console.log("Request Headers:", req.headers);
