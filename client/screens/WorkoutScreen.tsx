@@ -4649,7 +4649,7 @@ useFocusEffect(
     setIsLoading(true);
     try {
       
-      var res = await configure("public_live_a5jSYbzaDk7sgalguc");
+      var res = await configure("public_live_ENl0bawcspDkVlGFaB");
       console.log("Configuration successful:", res);
       setIsLoading(false);
       setDidConfig(true);

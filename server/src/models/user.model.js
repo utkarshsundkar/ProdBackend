@@ -77,6 +77,15 @@ const userSchema = new mongoose.Schema(
     focusSessions: [
       { type: mongoose.Schema.Types.ObjectId, ref: "FocusSession" },
     ],
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
+    premium: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Premium",
+      default: null,
+    },
   },
   {
     timestamps: true,
