@@ -22,8 +22,8 @@ setInterval(() => {
 
 app.use(cors({
     origin: [
-      "http://localhost:3000",     // for web frontend (localhost)
-      "http://10.0.2.2:3000"       // for Android emulator
+      "http://localhost:3000",
+      "http://10.0.2.2:3000"       
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
@@ -56,6 +56,7 @@ import dietRouter from "./routes/diet.routes.js"
 import creditRouter from "./routes/credit.routes.js"
 import lifestyleRouter from "./routes/lifeStyle.routes.js"
 import focusRouter from "./routes/focusMode.routes.js"
+import paymentRouter from "./routes/payment.routes.js"
 
 //routes declaration
 app.get("/", (req, res) => {
@@ -72,5 +73,6 @@ app.use("/api/v1/onboarding", onboardingRouter)
 app.use("/api/v1/lifestyle", lifestyleRouter)
 app.use("/api/v1/credit", creditRouter)
 app.use("/api/v1/focus", focusRouter)
+app.use("/api/v1/payment", paymentRouter)
 
 export { app }
