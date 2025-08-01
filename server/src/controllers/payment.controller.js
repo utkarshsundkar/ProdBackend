@@ -5,6 +5,73 @@ import { PLAN_PRICING } from "../config/planConfig.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import crypto from "crypto";
+
+const verifyPaymentAndActivate = asyncHandler(async (req, res) => {
+    const user = req.user;
+    const {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        planType,
+        paymentId,
+        method
+    } = req.body
+
+    const generatedSignature = crypto
+    .createHmac('sha256', process.env.RAZORPAY_SECRET_KEY)
+    .update(`${razorpay_order_id} | ${razorpay_payment_id}`)
+    .digest("hex")
+
+    if(generatedSignature != razorpay_signature){
+        throw new ApiError(400, "Invalid signature");
+    }
+
+    const paymentUpdate = await Payment.findOne(paymentId)
+
+    if (!paymentUpdate) {
+        throw new ApiError(404, "Payment not found");
+    }
+
+    paymentUpdate.paymentId = razorpay_payment_id
+    paymentUpdate.status = "success"
+    paymentUpdate.method = method
+    paymentUpdate.captured = true
+    await paymentUpdate.save()
+
+    const now = new Date()
+    const duration = planType === "monthly" ? PLAN_PRICING.monthly.durationInDays : PLAN_PRICING.yearly.durationInDays;
+    const expiryDate = new Date(now.getTime() + duration * 24 * 60 * 60 * 1000);
+
+    const existingPlan = await Premium.findOne({ user: user._id });
+
+    if (existingPlan) {
+        existingPlan.active.planType = planType;
+        existingPlan.active.startDate = now;
+        existingPlan.active.endDate = endDate;
+        existingPlan.lastPayment = paymentUpdate._id;
+        await existingPlan.save();
+    }
+    if(!existingPlan){
+        await Premium.create({
+            user: user._id,
+            active: {
+                planType,
+                startDate: now,
+                endDate
+            },
+            lastPayment: paymentUpdate._id
+        })
+    }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            paymentUpdate,
+            "Payment verified and plan activated successfully",
+        )
+    )
+})
 
 const createOrder = asyncHandler(async (req, res) => {
   const user = req.user;
@@ -66,4 +133,4 @@ const getPlan = asyncHandler(async (req, res) => {
   }
 });
 
-export { getPlan };
+export { getPlan , createOrder, verifyPaymentAndActivate };
