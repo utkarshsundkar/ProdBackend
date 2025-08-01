@@ -34,4 +34,4 @@ const premiumSchema = new mongoose.Schema(
   }
 );
 
-export const Premium = mongoose.model("Premium", premiumSchema);
+export const Payment = mongoose.model("Payment", premiumSchema);

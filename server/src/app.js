@@ -1,16 +1,18 @@
 import express from "express"
 import cors from "cors"
 import mongoSanitize from "express-mongo-sanitize"
-import axios from 'axios';
+import dotenv from "dotenv";
+dotenv.config();
+
 
 const app = express()
 
-const SELF_URL = 'https://your-app-name.onrender.com';
-setInterval(() => {
-  axios.get(SELF_URL)
-    .then(() => console.log(`[PING] Self-pinged at ${new Date().toLocaleTimeString()}`))
-    .catch((err) => console.error('[PING ERROR]', err.message));
-}, 14 * 60 * 1000);
+// const SELF_URL = 'https://your-app-name.onrender.com';
+// setInterval(() => {
+//   axios.get(SELF_URL)
+//     .then(() => console.log(`[PING] Self-pinged at ${new Date().toLocaleTimeString()}`))
+//     .catch((err) => console.error('[PING ERROR]', err.message));
+// }, 14 * 60 * 1000);
 
 
 // app.use((req, res, next) => {
