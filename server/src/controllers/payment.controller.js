@@ -16,15 +16,23 @@ const verifyPaymentAndActivate = asyncHandler(async (req, res) => {
         razorpay_signature,
         planType,
         paymentId,
-        method
+        method,
+        appliedCredits = 0
     } = req.body
 
     console.log('🔍 Verifying payment:', {
         razorpay_order_id,
         razorpay_payment_id,
         planType,
-        paymentId
+        paymentId,
+        method,
+        appliedCredits
     });
+
+    console.log('🔍 User ID:', user._id);
+    console.log('🔍 Plan type:', planType);
+    console.log('🔍 Available plans:', Object.keys(PLAN_PRICING));
+    console.log('🔍 Applied credits:', appliedCredits);
 
     try {
         // Verify Razorpay signature
@@ -42,6 +50,29 @@ const verifyPaymentAndActivate = asyncHandler(async (req, res) => {
         }
 
         console.log('✅ Signature verified successfully!');
+        
+        // Deduct applied credits from user account
+        if (appliedCredits > 0) {
+          console.log('🔍 Deducting credits:', appliedCredits, 'from user:', user._id);
+          
+          // Check if user has enough credits
+          const currentUser = await User.findById(user._id);
+          if (!currentUser) {
+            throw new ApiError(404, "User not found");
+          }
+          
+          if (currentUser.credits < appliedCredits) {
+            throw new ApiError(400, `Insufficient credits. You have ${currentUser.credits} credits but trying to use ${appliedCredits} credits.`);
+          }
+          
+          const updatedUser = await User.findByIdAndUpdate(
+            user._id,
+            { $inc: { credits: -appliedCredits } },
+            { new: true }
+          );
+          
+          console.log('✅ Credits deducted successfully. New balance:', updatedUser.credits);
+        }
     } catch (error) {
         console.error('❌ Signature verification error:', error);
         throw new ApiError(400, `Signature verification failed: ${error.message}`);
@@ -66,7 +97,9 @@ const verifyPaymentAndActivate = asyncHandler(async (req, res) => {
     await paymentUpdate.save();
 
     const now = new Date()
-    const duration = planType === "monthly" ? PLAN_PRICING.monthly.durationInDays : PLAN_PRICING.yearly.durationInDays;
+    const duration = planType === "starter" ? PLAN_PRICING.starter.durationInDays :
+                     planType === "monthly" ? PLAN_PRICING.monthly.durationInDays : 
+                     PLAN_PRICING.yearly.durationInDays;
     const expiryDate = new Date(now.getTime() + duration * 24 * 60 * 60 * 1000);
 
     // Update user's premium status
@@ -123,13 +156,47 @@ const verifyPaymentAndActivate = asyncHandler(async (req, res) => {
 
 const createOrder = asyncHandler(async (req, res) => {
   const user = req.user;
-  const { planType } = req.body;
+  const { planType, appliedCredits = 0 } = req.body;
 
-  if (!["monthly", "yearly"].includes(planType)) {
+  console.log('🔍 Creating order for plan type:', planType);
+  console.log('🔍 Applied credits:', appliedCredits);
+  console.log('🔍 Available plans:', Object.keys(PLAN_PRICING));
+
+  if (!["starter", "monthly", "yearly"].includes(planType)) {
+    console.log('❌ Invalid plan type:', planType);
     throw new ApiError(400, "Plan type is required");
   }
 
-  const amount = PLAN_PRICING[planType].amount;
+  // Check if user is trying to purchase starter plan again
+  if (planType === "starter") {
+    const existingStarterPlan = await Payment.findOne({
+      user: user._id,
+      planType: "starter",
+      paymentStatus: "success"
+    });
+
+    if (existingStarterPlan) {
+      console.log('❌ User has already used starter plan');
+      throw new ApiError(400, "Starter plan can only be purchased once. Please choose monthly or yearly plan.");
+    }
+  }
+
+  let amount = PLAN_PRICING[planType].amount;
+  
+  // Apply credit discount for monthly plan
+  if (planType === "monthly" && appliedCredits > 0) {
+    const discountPer25Credits = 1000; // ₹10 in paise per 25 credits
+    const maxDiscount = 15000; // ₹150 in paise (₹499 - ₹349)
+    
+    const discount = Math.min((appliedCredits / 25) * discountPer25Credits, maxDiscount);
+    amount = Math.max(amount - discount, 34900); // Minimum ₹349 in paise
+    
+    console.log('🔍 Applied credits:', appliedCredits);
+    console.log('🔍 Discount applied:', discount, 'paise');
+    console.log('🔍 Final amount:', amount, 'paise');
+  }
+
+  console.log('🔍 Plan amount:', amount, 'for plan:', planType);
 
   const options = {
     amount,
@@ -137,12 +204,25 @@ const createOrder = asyncHandler(async (req, res) => {
     receipt: `receipt_order_${Math.floor(Math.random() * 1000000)}`,
   };
 
-  const order = await razorpayInstance.orders.create(options);
+  console.log('🔍 Razorpay options:', options);
+
+  let order;
+  try {
+    order = await razorpayInstance.orders.create(options);
+    console.log('✅ Order created successfully:', order.id);
+  } catch (razorpayError) {
+    console.error('❌ Razorpay order creation failed:', razorpayError);
+    throw new ApiError(400, `Razorpay order creation failed: ${razorpayError.message}`);
+  }
 
   // Calculate end date based on plan type
   const now = new Date();
-  const duration = planType === "monthly" ? PLAN_PRICING.monthly.durationInDays : PLAN_PRICING.yearly.durationInDays;
+  const duration = planType === "starter" ? PLAN_PRICING.starter.durationInDays : 
+                   planType === "monthly" ? PLAN_PRICING.monthly.durationInDays : 
+                   PLAN_PRICING.yearly.durationInDays;
   const endDate = new Date(now.getTime() + duration * 24 * 60 * 60 * 1000);
+
+  console.log('🔍 Plan duration:', duration, 'days, End date:', endDate);
 
   // Create payment record with correct fields
   const newPayment = await Payment.create({
@@ -152,6 +232,8 @@ const createOrder = asyncHandler(async (req, res) => {
     startDate: now,
     active: true
   });
+
+  console.log('✅ Payment record created:', newPayment._id);
 
   return res.status(200).json(
     new ApiResponse(
@@ -185,4 +267,68 @@ const getPlan = asyncHandler(async (req, res) => {
   }
 });
 
-export { getPlan , createOrder, verifyPaymentAndActivate };
+const getUserPlanStatus = asyncHandler(async (req, res) => {
+  const user = req.user;
+
+  try {
+    // Refresh user data to get latest credits
+    const freshUser = await User.findById(user._id);
+    if (!freshUser) {
+      throw new ApiError(404, "User not found");
+    }
+
+    // Check if user has any successful payments
+    const successfulPayments = await Payment.find({
+      user: freshUser._id,
+      paymentStatus: "success"
+    }).sort({ createdAt: -1 });
+
+    // Check if user has used starter plan
+    const hasUsedStarterPlan = successfulPayments.some(payment => payment.planType === "starter");
+
+    // Get current active premium plan
+    const currentPremium = await Premium.findOne({
+      user: freshUser._id,
+      active: true
+    });
+
+    // Check if current plan is expired
+    const isPlanExpired = currentPremium ? new Date() > currentPremium.endDate : true;
+
+    // Determine available plans
+    const availablePlans = {
+      starter: !hasUsedStarterPlan, // Only show if never used
+      monthly: true, // Always available
+      yearly: true   // Always available
+    };
+
+    // Fetch actual user credits from database
+    const userCredits = freshUser.credits || 0;
+    
+    console.log('🔍 User credits fetched:', {
+      userId: freshUser._id,
+      credits: userCredits,
+      username: freshUser.username
+    });
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          hasUsedStarterPlan,
+          currentPremium,
+          isPlanExpired,
+          availablePlans,
+          successfulPayments: successfulPayments.length,
+          userCredits
+        },
+        "User plan status retrieved successfully"
+      )
+    );
+  } catch (error) {
+    console.error('❌ Error getting user plan status:', error);
+    throw new ApiError(500, error.message || "Internal Server Error");
+  }
+});
+
+export { getPlan, createOrder, verifyPaymentAndActivate, getUserPlanStatus };

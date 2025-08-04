@@ -4,11 +4,13 @@ import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('window');
-const AVATAR_SIZE = width * 0.18;
-const BAR_WIDTH = width * 0.05;
-const BAR_HEIGHT = height * 0.18;
-const CARD_WIDTH = width * 0.32;
-const CARD_HEIGHT = height * 0.07;
+
+// Convert all dimensions to percentage-based
+const AVATAR_SIZE = width * 0.18; // 18% of screen width
+const BAR_WIDTH = width * 0.05; // 5% of screen width
+const BAR_HEIGHT = height * 0.18; // 18% of screen height
+const CARD_WIDTH = width * 0.32; // 32% of screen width
+const CARD_HEIGHT = height * 0.07; // 7% of screen height
 
 const AVATARS = [
   { uri: 'https://randomuser.me/api/portraits/men/1.jpg', style: { top: height * 0.10, left: width * 0.10 } },
@@ -117,15 +119,17 @@ const styles = StyleSheet.create({
   },
   streakLabel: {
     color: '#7B61FF',
-    fontSize: 11,
+    fontSize: Math.max(width * 0.028, 11), // Responsive font size, minimum 11
     fontWeight: 'bold',
     letterSpacing: 1,
+    fontFamily: 'Lexend',
   },
   streakValue: {
     color: '#1E3CFF',
-    fontSize: 18,
+    fontSize: Math.max(width * 0.045, 18), // Responsive font size, minimum 18
     fontWeight: 'bold',
-    marginTop: 2,
+    marginTop: height * 0.002, // 0.2% of screen height
+    fontFamily: 'Lexend',
   },
   dotDecoration: {
     position: 'absolute',
@@ -136,8 +140,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '100%',
     left: 0,
-    // Place the group just above the text block
-    bottom: height * 0.36 + 120, // adjust 120 for text block height and spacing
+    // Place the group just above the text block using percentage
+    bottom: height * 0.36 + height * 0.15, // 36% + 15% of screen height
     height: AVATAR_SIZE * 2.5,
     zIndex: 10,
   },
@@ -145,7 +149,7 @@ const styles = StyleSheet.create({
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
-    borderWidth: 3,
+    borderWidth: Math.max(width * 0.008, 3), // Responsive border width, minimum 3
     borderColor: '#fff',
     backgroundColor: '#eee',
     position: 'absolute',
@@ -158,37 +162,39 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     backgroundColor: '#fff',
-    borderRadius: 14,
+    borderRadius: Math.max(width * 0.035, 14), // Responsive border radius, minimum 14
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowRadius: Math.max(width * 0.02, 8), // Responsive shadow radius, minimum 8
     elevation: 4,
     zIndex: 3,
   },
   textBlock: {
     alignItems: 'center',
     position: 'absolute',
-    bottom: height * 0.32,
+    bottom: height * 0.32, // 32% from bottom
     width: '100%',
-    paddingHorizontal: 16,
+    paddingHorizontal: width * 0.04, // 4% of screen width
     zIndex: 20,
   },
   title: {
     color: '#fff',
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: Math.max(width * 0.08, 32), // Responsive font size, minimum 32
+    //fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 38,
+    marginBottom: height * 0.01, // 1% of screen height
+    lineHeight: Math.max(width * 0.095, 38), // Responsive line height, minimum 38
+    fontFamily: 'Lexend',
   },
   subtitle: {
     color: '#e0e0e0',
-    fontSize: 17,
+    fontSize: Math.max(width * 0.042, 17), // Responsive font size, minimum 17
     textAlign: 'center',
     marginBottom: 0,
-    marginTop: 4,
-    paddingHorizontal: 16,
+    marginTop: height * 0.005, // 0.5% of screen height
+    paddingHorizontal: width * 0.04, // 4% of screen width
+    fontFamily: 'Lexend',
   },
 }); 

@@ -13,7 +13,7 @@ const premiumSchema = new mongoose.Schema(
     },
     planType: {
       type: String,
-      enum: ["monthly", "yearly"],
+      enum: ["starter", "monthly", "yearly"],
       required: true,
     },
     startDate: {

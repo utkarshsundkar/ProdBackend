@@ -16,19 +16,31 @@ import {
 import RazorpayCheckout from 'react-native-razorpay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../api.js';
+import { useNightMode } from '../../context/NightModeContext.js';
 
 const { width, height } = Dimensions.get('window');
 
 const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState('yearly'); // Default to yearly
-  const [openCard, setOpenCard] = useState('yearly'); // Track which card is open
+  const [selectedPlan, setSelectedPlan] = useState('starter'); // Default to starter
+  const [openCard, setOpenCard] = useState('starter'); // Track which card is open
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
   const [slideAnim] = useState(new Animated.Value(0));
+  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [userPlanStatus, setUserPlanStatus] = useState(null);
+  const [availablePlans, setAvailablePlans] = useState({
+    starter: true,
+    monthly: true,
+    yearly: true
+  });
+  const [userCredits, setUserCredits] = useState(0);
+  const [appliedCredits, setAppliedCredits] = useState(0);
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const { isNightMode } = useNightMode();
   const [animationValues] = useState({
+    starter: new Animated.Value(1), // Start with starter open
     monthly: new Animated.Value(0),
-    quarterly: new Animated.Value(0),
-    yearly: new Animated.Value(1), // Start with yearly open
+    yearly: new Animated.Value(0),
   });
 
   const reviews = [
@@ -85,40 +97,116 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
     return () => clearInterval(interval);
   }, [reviews.length, slideAnim]);
 
+  // Fetch user's plan status when component mounts
+  useEffect(() => {
+    if (visible) {
+      fetchUserPlanStatus();
+    }
+  }, [visible]);
+
+  const fetchUserPlanStatus = async () => {
+    try {
+      const authToken = await getAuthToken();
+      if (!authToken) {
+        console.log('❌ No auth token found for plan status check');
+        return;
+      }
+
+      const response = await fetch(`${BASE_URL}/payment/user-plan-status`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📋 User plan status:', data.data);
+        
+        setUserPlanStatus(data.data);
+        setAvailablePlans(data.data.availablePlans);
+        setUserCredits(data.data.userCredits || 0);
+
+        // If starter plan is not available, default to monthly
+        if (!data.data.availablePlans.starter && selectedPlan === 'starter') {
+          setSelectedPlan('monthly');
+          setOpenCard('monthly');
+          // Update animation values
+          animationValues.starter.setValue(0);
+          animationValues.monthly.setValue(1);
+        }
+      } else {
+        console.log('❌ Failed to fetch user plan status');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching user plan status:', error);
+    }
+  };
+
+  const handleApplyCredits = () => {
+    if (userCredits > 0) {
+      setShowCreditModal(true);
+    }
+  };
+
+  const handleCreditApplication = (creditsToApply) => {
+    setAppliedCredits(creditsToApply);
+    setShowCreditModal(false);
+  };
+
   const currentReview = reviews[currentReviewIndex];
+
+  // Calculate monthly plan price with credits
+  const calculateMonthlyPrice = (basePrice = 499, credits = appliedCredits) => {
+    const discountPer25Credits = 10; // ₹10 discount per 25 credits
+    const maxDiscount = 150; // Maximum ₹150 discount (₹499 - ₹349)
+    
+    // Cap credits at 150 since that's the maximum discount
+    const effectiveCredits = Math.min(credits, 150);
+    const discount = Math.min((effectiveCredits / 25) * discountPer25Credits, maxDiscount);
+    const finalPrice = Math.max(basePrice - discount, 349); // Minimum ₹349
+    
+    return {
+      originalPrice: basePrice,
+      discountedPrice: finalPrice,
+      discount: basePrice - finalPrice,
+      creditsUsed: Math.floor((basePrice - finalPrice) / discountPer25Credits) * 25
+    };
+  };
+
+  const monthlyPricing = calculateMonthlyPrice(499, appliedCredits);
 
   const plans = [
     {
-      id: 'monthly',
-      name: 'Monthly',
-      price: '₹249',
-      originalPrice: '₹499',
+      id: 'starter',
+      name: 'Starter',
+      price: '₹100',
+      originalPrice: '₹200',
       savings: '50% OFF',
-      duration: 'month',
+      duration: '14 days',
       popular: false,
       features: [
-        'Unlimited Workouts',
-        'Premium Exercises',
-        'Progress Tracking',
-        'Custom Plans',
-        'Priority Support'
+        'Full App Access',
+        'Basic Workouts',
+        'Progress Tracking'
       ]
     },
     {
-      id: 'quarterly',
-      name: 'Quarterly',
-      price: '₹699',
-      originalPrice: '₹1,497',
-      savings: '53% OFF',
-      duration: 'quarter',
+      id: 'monthly',
+      name: 'Monthly',
+      price: `₹${monthlyPricing.discountedPrice}`,
+      originalPrice: `₹${monthlyPricing.originalPrice}`,
+      savings: monthlyPricing.discount > 0 ? `₹${monthlyPricing.discount} OFF` : '17% OFF',
+      duration: 'month',
       popular: false,
       features: [
-        'Everything in Monthly',
-        'Advanced Analytics',
-        'Personal Coach',
-        'Nutrition Plans',
-        'Quarterly Savings'
-      ]
+        'Everything in Starter',
+        'Advanced Workouts',
+        'Personalized Plans'
+      ],
+      note: 'Price reduces by ₹10 for every 25 credits earned',
+      hasCredits: userCredits > 0,
+      appliedCredits: appliedCredits,
+      creditsAvailable: userCredits
     },
     {
       id: 'yearly',
@@ -130,11 +218,8 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
       popular: true,
       features: [
         'Everything in Monthly',
-        'Advanced Analytics',
-        'Personal Coach',
-        'Nutrition Plans',
-        'Early Access Features',
-        'Best Value'
+        'Premium Analytics',
+        'Personal Coach'
       ]
     }
   ];
@@ -191,6 +276,8 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
       }
 
       console.log('🔐 Using auth token:', authToken.substring(0, 20) + '...');
+      console.log('📋 Selected plan:', selectedPlan);
+      console.log('📋 Selected plan data:', selectedPlanData);
 
       const orderResponse = await fetch(`${BASE_URL}/payment/createorder`, {
         method: 'POST',
@@ -199,9 +286,13 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
           'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          planType: selectedPlan === 'monthly' ? 'monthly' : 'yearly'
+          planType: selectedPlan === 'starter' ? 'starter' : selectedPlan === 'monthly' ? 'monthly' : 'yearly',
+          appliedCredits: selectedPlan === 'monthly' ? appliedCredits : 0
         })
       });
+
+      console.log('📡 Order response status:', orderResponse.status);
+      console.log('📡 Order response headers:', orderResponse.headers);
 
       // Check if response is JSON
       const contentType = orderResponse.headers.get('content-type');
@@ -261,60 +352,28 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
         // Handle specific Razorpay error codes
         if (razorpayError.code === 'PAYMENT_CANCELLED') {
           console.log('💳 Payment was cancelled by user');
-          Alert.alert(
-            'Payment Cancelled', 
-            'You cancelled the payment. You can try again anytime.',
-            [{ text: 'OK', onPress: () => console.log('Payment cancelled by user') }]
-          );
+          setShowFailureModal(true);
         } else if (razorpayError.code === 'NETWORK_ERROR') {
           console.log('💳 Network error with Razorpay');
-          Alert.alert(
-            'Network Error', 
-            'Unable to connect to payment gateway. Please check your internet connection and try again.',
-            [{ text: 'OK', onPress: () => console.log('Network error acknowledged') }]
-          );
+          setShowFailureModal(true);
         } else if (razorpayError.code === 'INVALID_PAYMENT_METHOD') {
           console.log('💳 Invalid payment method');
-          Alert.alert(
-            'Payment Method Error', 
-            'The selected payment method is not available. Please try a different payment option.',
-            [{ text: 'OK', onPress: () => console.log('Invalid payment method acknowledged') }]
-          );
+          setShowFailureModal(true);
         } else if (razorpayError.code === 'PAYMENT_FAILED') {
           console.log('💳 Payment failed');
-          Alert.alert(
-            'Payment Failed', 
-            'The payment was not successful. Please check your payment details and try again.',
-            [{ text: 'OK', onPress: () => console.log('Payment failed acknowledged') }]
-          );
+          setShowFailureModal(true);
         } else if (razorpayError.code === 'ORDER_NOT_FOUND') {
           console.log('💳 Order not found');
-          Alert.alert(
-            'Order Error', 
-            'The payment order was not found. Please try again.',
-            [{ text: 'OK', onPress: () => console.log('Order not found acknowledged') }]
-          );
+          setShowFailureModal(true);
         } else if (razorpayError.code === 'INVALID_AMOUNT') {
           console.log('💳 Invalid amount');
-          Alert.alert(
-            'Amount Error', 
-            'The payment amount is invalid. Please try again.',
-            [{ text: 'OK', onPress: () => console.log('Invalid amount acknowledged') }]
-          );
+          setShowFailureModal(true);
         } else if (razorpayError.message && razorpayError.message.includes('Something went wrong')) {
           console.log('💳 Razorpay configuration error');
-          Alert.alert(
-            'Configuration Error', 
-            'There was an issue with the payment gateway. Please try again later.',
-            [{ text: 'OK', onPress: () => console.log('Configuration error acknowledged') }]
-          );
+          setShowFailureModal(true);
         } else {
           console.log('💳 Unknown Razorpay error:', razorpayError);
-          Alert.alert(
-            'Payment Error', 
-            'Something went wrong with the payment. Please try again or contact support if the issue persists.',
-            [{ text: 'OK', onPress: () => console.log('Unknown error acknowledged') }]
-          );
+          setShowFailureModal(true);
         }
         
         setLoading(false);
@@ -326,27 +385,7 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
       
       // Don't show alert for user-initiated cancellations
       if (error.code !== 'PAYMENT_CANCELLED') {
-        let errorTitle = 'Payment Error';
-        let errorMessage = 'Something went wrong with the payment. Please try again.';
-        
-        // Handle specific error types
-        if (error.message && error.message.includes('Network request failed')) {
-          errorTitle = 'Network Error';
-          errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
-        } else if (error.message && error.message.includes('Server error')) {
-          errorTitle = 'Server Error';
-          errorMessage = 'There was an issue with our servers. Please try again in a few minutes.';
-        } else if (error.message && error.message.includes('Authentication')) {
-          errorTitle = 'Authentication Error';
-          errorMessage = 'Please login to your account first to make a payment.';
-        } else if (error.message && error.message.includes('Invalid order data')) {
-          errorTitle = 'Order Error';
-          errorMessage = 'There was an issue creating your payment order. Please try again.';
-        }
-        
-        Alert.alert(errorTitle, errorMessage, [
-          { text: 'OK', onPress: () => console.log('Payment error acknowledged') }
-        ]);
+        setShowFailureModal(true);
       }
       setLoading(false);
     }
@@ -380,7 +419,8 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
           razorpay_signature: razorpayResponse.razorpay_signature,
           planType: selectedPlan,
           paymentId: paymentId,
-          method: 'razorpay'
+          method: 'razorpay',
+          appliedCredits: selectedPlan === 'monthly' ? appliedCredits : 0
         })
       });
 
@@ -398,13 +438,18 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
       console.log('🔍 Verification data:', verifyData);
       
       if (verifyData.success) {
+        const creditMessage = selectedPlan === 'monthly' && appliedCredits > 0 
+          ? `\n\n${appliedCredits} credits have been deducted from your account.`
+          : '';
+          
         Alert.alert(
           'Payment Successful!',
-          'Your premium plan has been activated successfully.',
+          `Your premium plan has been activated successfully.${creditMessage}`,
           [
             {
               text: 'OK',
               onPress: () => {
+                fetchUserPlanStatus(); // Refresh plan status
                 onSuccess();
                 onClose();
               }
@@ -581,15 +626,33 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
       transparent={false}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fafafa" />
+      <SafeAreaView style={[
+        styles.container,
+        isNightMode && { backgroundColor: '#1a1a1a' }
+      ]}>
+        <StatusBar barStyle={isNightMode ? "light-content" : "dark-content"} backgroundColor={isNightMode ? "#1a1a1a" : "#fafafa"} />
         
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerSubtitle}>Try Fitness App for free</Text>
-          <Text style={styles.headerTitle}>Unlock All Features</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Text style={styles.closeText}>✕</Text>
+        <View style={[
+          styles.header,
+          isNightMode && { backgroundColor: '#1a1a1a' }
+        ]}>
+          <Text style={[
+            styles.headerSubtitle,
+            isNightMode && { color: '#cccccc' }
+          ]}>Try Fitness App for free</Text>
+          <Text style={[
+            styles.headerTitle,
+            isNightMode && { color: '#ffffff' }
+          ]}>Unlock All Features</Text>
+          <TouchableOpacity onPress={onClose} style={[
+            styles.closeButton,
+            isNightMode && { backgroundColor: '#333333' }
+          ]}>
+            <Text style={[
+              styles.closeText,
+              isNightMode && { color: '#ffffff' }
+            ]}>✕</Text>
           </TouchableOpacity>
         </View>
 
@@ -614,14 +677,22 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
                   <Text key={index} style={styles.star}>⭐</Text>
                 ))}
               </View>
-              <Text style={styles.reviewText}>"{currentReview.text}"</Text>
-              <Text style={styles.reviewerName}>- {currentReview.name}</Text>
+              <Text style={[
+                styles.reviewText,
+                isNightMode && { color: '#cccccc' }
+              ]}>"{currentReview.text}"</Text>
+              <Text style={[
+                styles.reviewerName,
+                isNightMode && { color: '#999999' }
+              ]}>- {currentReview.name}</Text>
             </Animated.View>
           </View>
 
           {/* Interactive Plan Cards */}
           <View style={styles.cardsContainer}>
-            {plans.map((plan) => {
+            {plans
+              .filter(plan => availablePlans[plan.id]) // Only show available plans
+              .map((plan) => {
               const isSelected = openCard === plan.id;
               const isPopular = plan.popular;
               
@@ -631,12 +702,12 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
                   style={[
                     styles.planCard,
                     {
-                      backgroundColor: isSelected ? '#FF6B35' : '#FFF3E0', // Orange theme
+                      backgroundColor: isSelected ? '#FF8C42' : (isNightMode ? '#333333' : '#000'), // Dark gray in night mode, black in light mode
                       borderWidth: isSelected ? 0 : 2,
-                      borderColor: isSelected ? 'transparent' : '#FF6B35', // Orange border
+                      borderColor: isSelected ? 'transparent' : (isNightMode ? '#444444' : '#000'), // Darker gray border in night mode
                       height: animationValues[plan.id].interpolate({
                         inputRange: [0, 1],
-                        outputRange: [80, height * 0.35], // Smaller expanded height for 3 cards
+                        outputRange: [80, plan.id === 'monthly' ? height * 0.40 : height * 0.35], // More height for monthly plan
                       }),
                       opacity: animationValues[plan.id].interpolate({
                         inputRange: [0, 1],
@@ -655,13 +726,13 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
                       <View style={styles.cardPricing}>
                         <Text style={[
                           styles.cardPrice,
-                          { color: isSelected ? '#fff' : '#FF6B35' } // Orange text
+                          { color: isSelected ? '#fff' : '#fff' } // White text on both selected and unselected
                         ]}>
                           {plan.price}
                         </Text>
                         <Text style={[
                           styles.cardPriceSubtext,
-                          { color: isSelected ? '#fff' : '#FF6B35' } // Orange text
+                          { color: isSelected ? '#fff' : '#ccc' } // Light gray text on unselected
                         ]}>
                           /{plan.duration}
                         </Text>
@@ -669,7 +740,7 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
                       <View style={styles.cardTitle}>
                         <Text style={[
                           styles.cardTitleText,
-                          { color: isSelected ? '#fff' : '#FF6B35' } // Orange text
+                          { color: isSelected ? '#fff' : '#fff' } // White text on both selected and unselected
                         ]}>
                           {plan.name} Plan
                         </Text>
@@ -677,12 +748,12 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
                           <View style={[
                             styles.popularBadge,
                             { 
-                              backgroundColor: isSelected ? '#fff' : '#FF6B35', // Orange badge
+                              backgroundColor: isSelected ? '#fff' : '#FF8C42', // Light orange badge on black
                             }
                           ]}>
                             <Text style={[
                               styles.popularBadgeText,
-                              { color: isSelected ? '#FF6B35' : '#fff' } // Orange text on white
+                              { color: isSelected ? '#FF8C42' : '#fff' } // Light orange text on white
                             ]}>
                               Popular
                             </Text>
@@ -710,19 +781,37 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
                     >
                       <Text style={[
                         styles.planDescription,
-                        { color: isSelected ? '#FFE0B2' : '#FF6B35' } // Light orange on selected
+                        { color: '#000' } // Black text for all plans
                       ]}>
-                        Enjoy complete access to Fitness App features for {plan.duration === 'month' ? 'a month' : plan.duration === 'quarter' ? '3 months' : 'a full year'}.
+                        {plan.id === 'starter' 
+                          ? 'Get started with full app access for 14 days to experience all features.'
+                          : plan.id === 'monthly'
+                          ? 'Enjoy complete access to Fitness App features for a month with credit-based discounts.'
+                          : 'Enjoy complete access to Fitness App features for a full year with maximum savings.'
+                        }
                       </Text>
+
+                      {plan.id === 'monthly' && (
+                        <Text style={[
+                          styles.planDescription,
+                          { color: '#000', fontSize: 12, fontStyle: 'italic' } // Black text
+                        ]}>
+                          {plan.note}
+                        </Text>
+                      )}
 
                       <Text style={[
                         styles.featuresTitle,
-                        { color: isSelected ? '#fff' : '#FF6B35' } // Orange text
+                        { color: '#000' } // Black text
                       ]}>
                         This plan gets
                       </Text>
                       
-                      <View style={styles.featuresCard}>
+                      <View style={[
+                        styles.featuresCard,
+                        plan.id === 'monthly' && { minHeight: 140 }, // Extra height for monthly plan
+                        isNightMode && { backgroundColor: '#2a2a2a' } // Dark background in night mode
+                      ]}>
                         {plan.features.slice(0, 3).map((feature, index) => (
                           <View key={index} style={styles.featureItem}>
                             <Text style={[
@@ -733,7 +822,7 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
                             </Text>
                             <Text style={[
                               styles.featureText,
-                              { color: '#333' }
+                              { color: isNightMode ? '#ffffff' : '#333' }
                             ]}>
                               {feature}
                             </Text>
@@ -750,19 +839,210 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
 
         {/* Payment Button - Fixed at Bottom */}
         <View style={styles.bottomSection}>
-          <TouchableOpacity
-            style={styles.payButton}
-            onPress={handlePayment}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
+          <View style={styles.bottomButtonsContainer}>
+            {/* Credit Button - Only show for monthly plan when user has credits */}
+            {selectedPlan === 'monthly' && userCredits > 0 ? (
+              <>
+                <TouchableOpacity
+                  style={styles.creditButton}
+                  onPress={handleApplyCredits}
+                >
+                  <Text style={styles.creditButtonText}>
+                    {appliedCredits > 0 ? `Use ${appliedCredits} Credits` : 'Use Credits'}
+                  </Text>
+                  {appliedCredits > 0 && (
+                    <Text style={styles.creditButtonSubtext}>
+                      Save ₹{monthlyPricing.discount}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* Payment Button - Equal size with credit button */}
+                <TouchableOpacity
+                  style={[
+                    styles.payButton,
+                    isNightMode && { backgroundColor: '#FF8C42' }, // Orange in night mode instead of black
+                    { flex: 1, marginLeft: 10 } // Equal size with credit button
+                  ]}
+                  onPress={handlePayment}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.payButtonText}>Start 14 day journey</Text>
+                  )}
+                </TouchableOpacity>
+              </>
             ) : (
-              <Text style={styles.payButtonText}>Start 7 days free trial</Text>
+              /* Full width payment button for all other cases */
+              <TouchableOpacity
+                style={[
+                  styles.payButton,
+                  isNightMode && { backgroundColor: '#FF8C42' }, // Orange in night mode instead of black
+                  { width: '100%' } // Full width
+                ]}
+                onPress={handlePayment}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.payButtonText}>Start 14 day journey</Text>
+                )}
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </View>
+
+          {/* Show applied credits info below buttons */}
+          {/* Removed applied credits info section */}
         </View>
       </SafeAreaView>
+
+      {/* Payment Failure Modal */}
+      <Modal
+        visible={showFailureModal}
+        animationType="fade"
+        transparent={false}
+        onRequestClose={() => setShowFailureModal(false)}
+      >
+        <SafeAreaView style={[
+          styles.failureModalOverlay,
+          isNightMode && { backgroundColor: '#1a1a1a' }
+        ]}>
+          <View style={[
+            styles.failureModalContent,
+            isNightMode && { backgroundColor: '#1a1a1a' }
+          ]}>
+            {/* Orange Exclamation Icon */}
+            <View style={styles.failureIconContainer}>
+              <View style={styles.failureIcon}>
+                <Text style={styles.failureExclamation}>!</Text>
+              </View>
+            </View>
+
+            {/* Title */}
+            <Text style={[
+              styles.failureTitle,
+              isNightMode && { color: '#ffffff' }
+            ]}>Order not completed</Text>
+
+            {/* First Message */}
+            <Text style={[
+              styles.failureMessage,
+              isNightMode && { color: '#cccccc' }
+            ]}>
+              If money has been debited from your bank account, please wait for us to process your order. If we're unable to complete your order successfully, you'll receive a full refund within 5 - 7 business days.
+            </Text>
+
+            {/* Second Message */}
+            <Text style={[
+              styles.failureMessage,
+              isNightMode && { color: '#cccccc' }
+            ]}>
+              If you were unable to complete your payment, please try again!
+            </Text>
+
+            {/* Got it Button */}
+            <TouchableOpacity
+              style={styles.failureButton}
+              onPress={() => setShowFailureModal(false)}
+            >
+              <Text style={styles.failureButtonText}>Got it!</Text>
+            </TouchableOpacity>
+
+            {/* Contact Information */}
+            <View style={styles.contactSection}>
+              <Text style={[
+                styles.contactText,
+                isNightMode && { color: '#999999' }
+              ]}>Please let us know if you're facing any issues</Text>
+              <View style={styles.contactInfo}>
+                <View style={styles.contactItem}>
+                  <Text style={styles.contactIcon}>📞</Text>
+                  <Text style={[
+                    styles.contactDetail,
+                    isNightMode && { color: '#ffffff' }
+                  ]}>+91 7208315878</Text>
+                </View>
+                <View style={styles.contactSeparator} />
+                <View style={styles.contactItem}>
+                  <Text style={styles.contactIcon}>✉️</Text>
+                  <Text style={[
+                    styles.contactDetail,
+                    isNightMode && { color: '#ffffff' }
+                  ]}>support@arthlete.fit</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Credit Application Modal */}
+      <Modal
+        visible={showCreditModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCreditModal(false)}
+      >
+        <View style={styles.creditModalOverlay}>
+          <View style={styles.creditModalContent}>
+            <Text style={styles.creditModalTitle}>Apply Credits</Text>
+            
+            <Text style={styles.creditModalSubtitle}>
+              Available Credits: {userCredits}
+            </Text>
+            
+            <Text style={styles.creditModalDescription}>
+              Apply credits to reduce your monthly plan price. Every 25 credits = ₹10 discount.
+            </Text>
+
+            <View style={styles.creditOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.creditOption,
+                  appliedCredits === 0 && styles.creditOptionSelected
+                ]}
+                onPress={() => handleCreditApplication(0)}
+              >
+                <Text style={styles.creditOptionText}>No Credits</Text>
+                <Text style={styles.creditOptionPrice}>₹499</Text>
+              </TouchableOpacity>
+
+              {/* Show available credits with calculated discount */}
+              {userCredits > 0 && (
+                <TouchableOpacity
+                  style={[
+                    styles.creditOption,
+                    appliedCredits === userCredits && styles.creditOptionSelected
+                  ]}
+                  onPress={() => handleCreditApplication(userCredits)}
+                >
+                  <Text style={styles.creditOptionText}>{userCredits} Credits Available</Text>
+                  <Text style={styles.creditOptionPrice}>₹{calculateMonthlyPrice(499, userCredits).discountedPrice}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.creditModalButtons}>
+              <TouchableOpacity
+                style={styles.creditModalCancelButton}
+                onPress={() => setShowCreditModal(false)}
+              >
+                <Text style={styles.creditModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.creditModalApplyButton}
+                onPress={() => setShowCreditModal(false)}
+              >
+                <Text style={styles.creditModalApplyText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
@@ -770,32 +1050,32 @@ const RazorpayPayment = ({ visible, onClose, onSuccess }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent', // Remove white background
-    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF', // Keep background white
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 20,
     paddingBottom: 10,
     alignItems: 'center',
     position: 'relative',
-    height: 70, // Reduced from 80
+    height: 70, // Reduced height
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 2, // Reduced from 4
+    color: '#333', // Dark gray/black
+    marginBottom: 2, // Reduced spacing
+    fontFamily: 'Lexend',
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    color: '#000', // Black text
+    // fontWeight: 'bold', // Removed bold
+    fontFamily: 'Lexend',
   },
   closeButton: {
     position: 'absolute',
+    top: 20,
     right: 20,
-    top: 10,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -805,51 +1085,54 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 16,
-    color: '#666',
+    color: '#333', // Dark gray/black
+    fontFamily: 'Lexend',
   },
   reviewsSection: {
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 0, // Removed bottom padding to minimize gap
+    paddingBottom: 0,
     alignItems: 'center',
-    height: 110, // Further reduced height to bring cards closer
-    overflow: 'hidden', // Hide overflow during animation
+    height: 130, // Increased from 110 to prevent cutting
+    overflow: 'hidden',
   },
   reviewContainer: {
-    width: width, // Ensure it takes full width
+    width: width,
     alignItems: 'center',
-    position: 'absolute', // Position absolutely to prevent layout shifts
+    position: 'absolute',
     top: 0,
     left: 0,
-    paddingBottom: 30, // Add space for dots
+    paddingBottom: 30,
   },
   starsContainer: {
     flexDirection: 'row',
-    marginBottom: 12, // Increased from 8
+    marginBottom: 12,
   },
   star: {
     fontSize: 24,
-    color: '#FFD700', // Gold color for stars
+    color: '#FFD700', // Keep gold stars
   },
   reviewText: {
     fontSize: 16,
     fontStyle: 'italic',
     textAlign: 'center',
-    color: '#555',
-    marginBottom: 8, // Increased from 5
+    color: '#333', // Dark gray/black
+    marginBottom: 8,
+    fontFamily: 'Lexend',
   },
   reviewerName: {
     fontSize: 14,
-    color: '#666',
+    color: '#666', // Medium gray
+    fontFamily: 'Lexend',
   },
   cardsContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 15, // Reduced from 25 to bring cards closer to dots
+    paddingTop: 8, // Reduced from 15 to 8 to decrease gap
   },
   planCard: {
     borderRadius: 20,
-    marginBottom: 8, // Reduced from 12 to bring cards closer together
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -860,32 +1143,35 @@ const styles = StyleSheet.create({
   cardTouchable: {
     flex: 1,
     padding: 20,
-    paddingLeft: 20, // Ensure consistent left padding
+    paddingLeft: 20,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12, // Reduced from 16
+    marginBottom: 12,
   },
   cardPricing: {
     alignItems: 'flex-start',
   },
   cardPrice: {
     fontSize: 28,
-    fontWeight: 'bold',
+    // fontWeight: 'bold', // Removed bold
+    fontFamily: 'Lexend',
   },
   cardPriceSubtext: {
     fontSize: 14,
     marginTop: -2,
+    fontFamily: 'Lexend',
   },
   cardTitle: {
     alignItems: 'flex-end',
   },
   cardTitleText: {
     fontSize: 18,
-    fontWeight: 'bold',
+    // fontWeight: 'bold', // Removed bold
     textAlign: 'right',
+    fontFamily: 'Lexend',
   },
   popularBadge: {
     paddingHorizontal: 8,
@@ -895,31 +1181,34 @@ const styles = StyleSheet.create({
   },
   popularBadgeText: {
     fontSize: 10,
-    fontWeight: 'bold',
+    // fontWeight: 'bold', // Removed bold
+    fontFamily: 'Lexend',
   },
   expandedContent: {
     flex: 1,
-    paddingLeft: 0, // Remove any left padding
-    marginLeft: 0, // Remove any left margin
+    paddingLeft: 0,
+    marginLeft: 0,
   },
   planDescription: {
-    fontSize: 14, // Reduced from 15
+    fontSize: 14,
     textAlign: 'left',
-    marginBottom: 12, // Reduced from 20
-    lineHeight: 18, // Reduced from 20
-    paddingLeft: 0, // Ensure no left padding
+    marginBottom: 12,
+    lineHeight: 18,
+    paddingLeft: 0,
+    fontFamily: 'Lexend',
   },
   featuresTitle: {
-    fontSize: 16, // Reduced from 18
-    fontWeight: 'bold',
-    marginBottom: 10, // Reduced from 16
+    fontSize: 16,
+    // fontWeight: 'bold', // Removed bold
+    marginBottom: 10,
     textAlign: 'left',
-    paddingLeft: 0, // Ensure no left padding
+    paddingLeft: 0,
+    fontFamily: 'Lexend',
   },
   featuresCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 16, // Reduced from 20
+    padding: 20, // Increased from 16
     width: '100%',
     flex: 1,
     shadowColor: '#000',
@@ -927,52 +1216,324 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
-    marginLeft: 0, // Ensure no left margin
+    marginLeft: 0,
+    minHeight: 120, // Added minimum height
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8, // Reduced from 12
+    marginBottom: 12, // Increased from 8
   },
   featureIcon: {
-    fontSize: 16, // Reduced from 18
-    marginRight: 10, // Reduced from 12
-    fontWeight: 'bold',
+    fontSize: 16,
+    marginRight: 10,
+    // fontWeight: 'bold', // Removed bold
+    color: '#FF8C42', // Light orange
   },
   featureText: {
-    fontSize: 13, // Reduced from 14
+    fontSize: 13,
     flex: 1,
-    lineHeight: 16, // Reduced from 18
+    lineHeight: 16,
+    fontFamily: 'Lexend',
   },
   bottomSection: {
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: 'transparent', // Remove white background
+    backgroundColor: 'transparent',
+  },
+  bottomButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10, // Add some space below buttons
+  },
+  creditButton: {
+    backgroundColor: '#FF8C42',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1, // Equal size with payment button
+    marginRight: 10,
+    height: 60, // Fixed height for both buttons
+    minHeight: 60, // Ensure consistent height
+  },
+  creditButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: 'Lexend',
+    textAlign: 'center',
+  },
+  creditButtonSubtext: {
+    fontSize: 10,
+    color: '#fff',
+    marginTop: 2,
+    fontFamily: 'Lexend',
+    textAlign: 'center',
   },
   payButton: {
-    backgroundColor: '#FF6B35', // Orange theme
-    borderRadius: 24,
-    paddingVertical: 18,
+    backgroundColor: '#000',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 4,
+    flex: 1, // Equal size with credit button
+    marginLeft: 10,
+    height: 60, // Fixed height for both buttons
+    minHeight: 60, // Ensure consistent height
   },
   payButtonDisabled: {
     backgroundColor: '#ccc',
   },
   payButtonText: {
     color: '#fff',
-    fontSize: 17,
-    fontWeight: 'bold',
+    fontSize: 14, // Changed from 17 to match credit button
+    fontWeight: 'bold', // Added bold to match credit button
+    fontFamily: 'Lexend',
+    textAlign: 'center', // Ensure text is centered
   },
   scrollContent: {
     flex: 1,
   },
   scrollContentContainer: {
-    paddingBottom: 100, // Add padding to the bottom to make space for the fixed button
+    paddingBottom: 100,
+  },
+  failureModalOverlay: {
+    flex: 1,
+    backgroundColor: '#FFFFFF', // Full screen white background
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  failureModalContent: {
+    flex: 1, // Take full height
+    width: '100%', // Take full width
+    backgroundColor: '#fff',
+    borderRadius: 0, // Remove border radius for full screen
+    paddingHorizontal: width * 0.05, // 5% of screen width
+    paddingVertical: height * 0.05, // 5% of screen height
+    alignItems: 'center',
+    justifyContent: 'flex-start', // Changed from space-between to flex-start
+    paddingTop: height * 0.08, // 8% of screen height
+  },
+  failureIconContainer: {
+    width: width * 0.2, // 20% of screen width
+    height: width * 0.2, // 20% of screen width (keep it circular)
+    borderRadius: width * 0.1, // 10% of screen width (half of width for perfect circle)
+    backgroundColor: '#FFE5D4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 0, // Removed gap completely
+  },
+  failureIcon: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  failureExclamation: {
+    fontSize: 40,
+    color: '#FF8C42',
+  },
+  failureTitle: {
+    fontSize: Math.max(width * 0.055, 18), // 5.5% of screen width, minimum 18px
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: height * 0.12, // 12% of screen height
+    textAlign: 'center',
+    fontFamily: 'Lexend',
+  },
+  failureMessage: {
+    fontSize: Math.max(width * 0.04, 14), // 4% of screen width, minimum 14px
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: height * 0.03, // 3% of screen height
+    lineHeight: Math.max(width * 0.055, 20), // 5.5% of screen width, minimum 20px
+    fontFamily: 'Lexend',
+  },
+  failureButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: width * 0.05, // 5% of screen width
+    paddingVertical: height * 0.015, // 1.5% of screen height
+    paddingHorizontal: width * 0.075, // 7.5% of screen width
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: height * 0.05, // 5% of screen height
+  },
+  failureButtonText: {
+    color: '#fff',
+    fontSize: Math.max(width * 0.042, 16), // 4.2% of screen width, minimum 16px
+    fontWeight: 'bold',
+    fontFamily: 'Lexend',
+  },
+  contactSection: {
+    marginTop: height * 0.03, // 3% of screen height
+    alignItems: 'center',
+  },
+  contactText: {
+    fontSize: Math.max(width * 0.035, 14), // 3.5% of screen width, minimum 14px
+    color: '#666',
+    marginBottom: height * 0.02, // 2% of screen height
+    fontFamily: 'Lexend',
+  },
+  contactInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  contactIcon: {
+    fontSize: Math.max(width * 0.05, 20), // 5% of screen width, minimum 20px
+    marginRight: width * 0.012, // 1.2% of screen width
+  },
+  contactDetail: {
+    fontSize: Math.max(width * 0.035, 14), // 3.5% of screen width, minimum 14px
+    color: '#000',
+    fontWeight: 'bold',
+    fontFamily: 'Lexend',
+  },
+  contactSeparator: {
+    width: 1,
+    height: height * 0.04, // 4% of screen height
+    backgroundColor: '#ccc',
+  },
+  creditModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  creditModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 25,
+    width: '90%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  creditModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 10,
+    fontFamily: 'Lexend',
+  },
+  creditModalSubtitle: {
+    fontSize: 18,
+    color: '#333',
+    marginBottom: 15,
+    fontFamily: 'Lexend',
+  },
+  creditModalDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    fontFamily: 'Lexend',
+  },
+  creditOptions: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  creditOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 10,
+    backgroundColor: '#f5f5f5',
+  },
+  creditOptionSelected: {
+    backgroundColor: '#FF8C42',
+    borderWidth: 1,
+    borderColor: '#FF8C42',
+  },
+  creditOptionText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    fontFamily: 'Lexend',
+  },
+  creditOptionPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF8C42',
+    fontFamily: 'Lexend',
+  },
+  creditModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 20,
+  },
+  creditModalCancelButton: {
+    backgroundColor: '#ccc',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  creditModalCancelText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'Lexend',
+  },
+  creditModalApplyButton: {
+    backgroundColor: '#FF8C42',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 10,
+  },
+  creditModalApplyText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'Lexend',
+  },
+  appliedCreditsInfo: {
+    backgroundColor: '#f8f9fa', // Lighter background
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignSelf: 'center',
+    marginTop: 8,
+    width: 'auto', // Auto width instead of 90%
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  appliedCreditsText: {
+    fontSize: 12, // Smaller font size
+    color: '#6c757d', // Muted color
+    fontFamily: 'Lexend',
+    textAlign: 'center',
   },
 });
 

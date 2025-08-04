@@ -39,7 +39,7 @@ export default function On6() {
         </Svg>
         {/* Title */}
         <Text style={styles.title}>Custom{"\n"}Workout</Text>
-        {/* Workout Card */}
+        {/* Workout Card - Centered in solar rings */}
         <View style={styles.card}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
             <Image source={{ uri: 'https://img.icons8.com/color/48/000000/calendar--v1.png' }} style={styles.cardIcon} />
@@ -74,84 +74,97 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: Math.max(width * 0.07, 28),
+    // fontWeight: 'bold',
     textAlign: 'left',
-    marginTop: 56,
-    marginLeft: 24,
-    marginBottom: 24,
+    marginTop: height * 0.07,
+    marginLeft: width * 0.06,
+    marginBottom: height * 0.03,
     letterSpacing: 1.5,
+    zIndex: 20,
+    fontFamily: 'Lexend',
   },
   card: {
+    position: 'absolute',
+    top: height * 0.32 - height * 0.08, // Center of circles (32%) minus half the card height (8%)
+    left: width / 2 - width * 0.4, // Center horizontally, card width is 80% of screen width
+    width: width * 0.8, // 80% of screen width
     backgroundColor: '#fff',
-    borderRadius: 16,
-    marginHorizontal: 24,
-    padding: 16,
-    marginBottom: 32,
+    borderRadius: Math.max(width * 0.04, 16), // Responsive border radius, minimum 16
+    padding: width * 0.04, // 4% of screen width
     shadowColor: '#000',
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: Math.max(width * 0.02, 8), // Responsive shadow radius, minimum 8
     elevation: 2,
+    zIndex: 15, // Higher z-index to appear above dots but below title
   },
   cardIcon: {
-    width: 32,
-    height: 32,
-    marginRight: 12,
+    width: Math.max(width * 0.08, 32), // Responsive icon size, minimum 32
+    height: Math.max(width * 0.08, 32), // Responsive icon size, minimum 32
+    marginRight: width * 0.03, // 3% of screen width
   },
   cardDay: {
     color: '#222',
-    fontWeight: 'bold',
-    fontSize: 16,
+    // fontWeight: 'bold',
+    fontSize: Math.max(width * 0.04, 16),
+    fontFamily: 'Lexend',
   },
   cardType: {
     color: '#888',
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: Math.max(width * 0.032, 13), // Responsive font size, minimum 13
+    marginTop: height * 0.002, // 0.2% of screen height
   },
   editDayBtn: {
     backgroundColor: '#eee',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 18,
-    marginRight: 8,
+    borderRadius: Math.max(width * 0.02, 8), // Responsive border radius, minimum 8
+    paddingVertical: height * 0.007, // 0.7% of screen height
+    paddingHorizontal: width * 0.045, // 4.5% of screen width
+    marginRight: width * 0.02, // 2% of screen width
   },
   editDayText: {
     color: '#222',
-    fontWeight: 'bold',
-    fontSize: 14,
+    // fontWeight: 'bold',
+    fontSize: Math.max(width * 0.035, 14),
+    fontFamily: 'Lexend',
   },
   addExBtn: {
     backgroundColor: '#3E4DB8',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 18,
+    borderRadius: Math.max(width * 0.02, 8), // Responsive border radius, minimum 8
+    paddingVertical: height * 0.007, // 0.7% of screen height
+    paddingHorizontal: width * 0.045, // 4.5% of screen width
   },
   addExText: {
     color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
+    // fontWeight: 'bold',
+    fontSize: Math.max(width * 0.035, 14),
+    fontFamily: 'Lexend',
   },
   textBlock: {
     width: '100%',
     position: 'absolute',
-    bottom: 240,
+    bottom: height * 0.28, // 28% from bottom (increased to avoid overlap)
     alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    marginTop: 16,
+    paddingHorizontal: width * 0.06, // 6% of screen width
+    marginTop: height * 0.02, // 2% of screen height
+    zIndex: 30, // Highest z-index to appear above everything
   },
   mainTitle: {
     color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: Math.max(width * 0.06, 24),
+    // fontWeight: 'bold',
     textAlign: 'left',
-    marginBottom: 10,
-    marginTop: 10,
+    marginBottom: height * 0.012,
+    marginTop: height * 0.012,
+    zIndex: 30,
+    fontFamily: 'Lexend',
   },
   subText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: Math.max(width * 0.035, 14),
     textAlign: 'left',
     opacity: 0.9,
     marginTop: 0,
+    zIndex: 30,
+    fontFamily: 'Lexend',
   },
 }); 
