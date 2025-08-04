@@ -236,9 +236,12 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 
 
 const getCurrentUser = asyncHandler(async (req, res) => {
+  // Populate the premium data
+  const user = await User.findById(req.user._id).populate('premium');
+  
   return res
     .status(200)
-    .json(new ApiResponse(200, { user: req.user }, "User fetched successfully"));
+    .json(new ApiResponse(200, { user }, "User fetched successfully"));
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {

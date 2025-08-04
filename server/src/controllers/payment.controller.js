@@ -6,6 +6,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import crypto from "crypto";
+import { User } from "../models/user.model.js";
 
 const verifyPaymentAndActivate = asyncHandler(async (req, res) => {
     const user = req.user;
@@ -18,56 +19,103 @@ const verifyPaymentAndActivate = asyncHandler(async (req, res) => {
         method
     } = req.body
 
-    const generatedSignature = crypto
-    .createHmac('sha256', process.env.RAZORPAY_SECRET_KEY)
-    .update(`${razorpay_order_id} | ${razorpay_payment_id}`)
-    .digest("hex")
+    console.log('🔍 Verifying payment:', {
+        razorpay_order_id,
+        razorpay_payment_id,
+        planType,
+        paymentId
+    });
 
-    if(generatedSignature != razorpay_signature){
-        throw new ApiError(400, "Invalid signature");
+    try {
+        // Verify Razorpay signature
+        const generatedSignature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest("hex")
+
+        console.log('🔍 Generated signature:', generatedSignature);
+        console.log('🔍 Received signature:', razorpay_signature);
+
+        if(generatedSignature !== razorpay_signature){
+            console.log('❌ Signature mismatch!');
+            throw new ApiError(400, "Invalid signature");
+        }
+
+        console.log('✅ Signature verified successfully!');
+    } catch (error) {
+        console.error('❌ Signature verification error:', error);
+        throw new ApiError(400, `Signature verification failed: ${error.message}`);
     }
 
-    const paymentUpdate = await Payment.findOne(paymentId)
+    // Find the payment record by ID
+    const paymentUpdate = await Payment.findById(paymentId);
 
     if (!paymentUpdate) {
         throw new ApiError(404, "Payment not found");
     }
 
-    paymentUpdate.paymentId = razorpay_payment_id
-    paymentUpdate.status = "success"
-    paymentUpdate.method = method
-    paymentUpdate.captured = true
-    await paymentUpdate.save()
+    console.log('🔍 Found payment record:', paymentUpdate);
+
+    // Update payment record with transaction details
+    paymentUpdate.razorpayOrderId = razorpay_order_id;
+    paymentUpdate.razorpayPaymentId = razorpay_payment_id;
+    paymentUpdate.razorpaySignature = razorpay_signature;
+    paymentUpdate.paymentMethod = method;
+    paymentUpdate.paymentStatus = "success";
+    paymentUpdate.paymentDate = new Date();
+    await paymentUpdate.save();
 
     const now = new Date()
     const duration = planType === "monthly" ? PLAN_PRICING.monthly.durationInDays : PLAN_PRICING.yearly.durationInDays;
     const expiryDate = new Date(now.getTime() + duration * 24 * 60 * 60 * 1000);
 
+    // Update user's premium status
+    await User.findByIdAndUpdate(user._id, {
+        isPremium: true,
+        premium: null // We'll set this after creating the Premium record
+    });
+
     const existingPlan = await Premium.findOne({ user: user._id });
 
     if (existingPlan) {
-        existingPlan.active.planType = planType;
-        existingPlan.active.startDate = now;
-        existingPlan.active.endDate = endDate;
+        existingPlan.active = true;
+        existingPlan.planType = planType;
+        existingPlan.startDate = now;
+        existingPlan.endDate = expiryDate;
         existingPlan.lastPayment = paymentUpdate._id;
         await existingPlan.save();
+        
+        // Link the existing plan to user
+        await User.findByIdAndUpdate(user._id, {
+            premium: existingPlan._id
+        });
     }
     if(!existingPlan){
-        await Premium.create({
+        const newPremium = await Premium.create({
             user: user._id,
-            active: {
-                planType,
-                startDate: now,
-                endDate
-            },
+            active: true,
+            planType: planType,
+            startDate: now,
+            endDate: expiryDate,
             lastPayment: paymentUpdate._id
-        })
+        });
+        
+        // Link the new plan to user
+        await User.findByIdAndUpdate(user._id, {
+            premium: newPremium._id
+        });
     }
+
+    console.log('✅ User premium status updated successfully!');
 
     return res.status(200).json(
         new ApiResponse(
             200,
-            paymentUpdate,
+            {
+                success: true,
+                payment: paymentUpdate,
+                message: "Payment verified and plan activated successfully"
+            },
             "Payment verified and plan activated successfully",
         )
     )
@@ -91,23 +139,27 @@ const createOrder = asyncHandler(async (req, res) => {
 
   const order = await razorpayInstance.orders.create(options);
 
+  // Calculate end date based on plan type
+  const now = new Date();
+  const duration = planType === "monthly" ? PLAN_PRICING.monthly.durationInDays : PLAN_PRICING.yearly.durationInDays;
+  const endDate = new Date(now.getTime() + duration * 24 * 60 * 60 * 1000);
+
+  // Create payment record with correct fields
   const newPayment = await Payment.create({
-    userId: user._id,
-    orderId: order.id,
-    amount: order.amount,
-    currency: order.currency,
-    method: "pending",
-    status: "pending",
+    user: user._id,
+    planType: planType,
+    endDate: endDate,
+    startDate: now,
+    active: true
   });
 
   return res.status(200).json(
     new ApiResponse(
       200,
-      newPayment,
       {
         success: true,
         order,
-        paymentId: newPayment.id,
+        paymentId: newPayment._id,
         razorpayKey: process.env.RAZORPAY_KEY_ID,
       },
       "Order created successfully"

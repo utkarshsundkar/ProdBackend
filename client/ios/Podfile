@@ -13,7 +13,7 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
-target 'RNSMKitUIDemoApp' do
+target 'Arthlete' do
   use_frameworks!
   config = use_native_modules!
 
@@ -31,7 +31,7 @@ target 'RNSMKitUIDemoApp' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
-  target 'RNSMKitUIDemoAppTests' do
+  target 'ArthleteTests' do
     inherit! :complete
     # Pods for testing
   end

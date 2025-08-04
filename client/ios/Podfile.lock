@@ -9,6 +9,7 @@ PODS:
   - hermes-engine (0.74.2):
     - hermes-engine/Pre-built (= 0.74.2)
   - hermes-engine/Pre-built (0.74.2)
+  - razorpay-pod (1.4.2)
   - RCT-Folly (2024.01.01.00):
     - boost
     - DoubleConversion
@@ -937,6 +938,30 @@ PODS:
   - React-Mapbuffer (0.74.2):
     - glog
     - React-debug
+  - react-native-pager-view (6.8.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Codegen
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
+  - react-native-razorpay (2.3.0):
+    - razorpay-pod
+    - React
   - react-native-safe-area-context (5.4.1):
     - React-Core
   - react-native-smkit-ui (0.2.9):
@@ -1243,6 +1268,27 @@ PODS:
     - Yoga
   - RNSVG (15.12.0):
     - React-Core
+  - RNVectorIcons (10.2.0):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Codegen
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - SMBase (0.6.7):
     - SwiftyJSON
   - SMKit (0.3.4):
@@ -1289,6 +1335,8 @@ DEPENDENCIES:
   - React-jsitracing (from `../node_modules/react-native/ReactCommon/hermes/executor/`)
   - React-logger (from `../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
+  - react-native-pager-view (from `../node_modules/react-native-pager-view`)
+  - react-native-razorpay (from `../node_modules/react-native-razorpay`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - "react-native-smkit-ui (from `../node_modules/@sency/react-native-smkit-ui`)"
   - react-native-splash-screen (from `../node_modules/react-native-splash-screen`)
@@ -1321,6 +1369,7 @@ DEPENDENCIES:
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
+  - RNVectorIcons (from `../node_modules/react-native-vector-icons`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -1329,6 +1378,7 @@ SPEC REPOS:
     - SMKit
     - SMKitUI
   https://github.com/CocoaPods/Specs.git:
+    - razorpay-pod
     - SocketRocket
     - SwiftyJSON
     - ZIPFoundation
@@ -1397,6 +1447,10 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/logger"
   React-Mapbuffer:
     :path: "../node_modules/react-native/ReactCommon"
+  react-native-pager-view:
+    :path: "../node_modules/react-native-pager-view"
+  react-native-razorpay:
+    :path: "../node_modules/react-native-razorpay"
   react-native-safe-area-context:
     :path: "../node_modules/react-native-safe-area-context"
   react-native-smkit-ui:
@@ -1461,6 +1515,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-screens"
   RNSVG:
     :path: "../node_modules/react-native-svg"
+  RNVectorIcons:
+    :path: "../node_modules/react-native-vector-icons"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -1472,6 +1528,7 @@ SPEC CHECKSUMS:
   fmt: 4c2741a687cc09f0634a2e2c72a838b99f1ff120
   glog: fdfdfe5479092de0c4bdbebedd9056951f092c4f
   hermes-engine: 01d3e052018c2a13937aca1860fbedbccd4a41b7
+  razorpay-pod: 77bdd9733b6ea81c9fbbd6b75fea6a09feab284e
   RCT-Folly: 02617c592a293bd6d418e0a88ff4ee1f88329b47
   RCTDeprecation: b03c35057846b685b3ccadc9bfe43e349989cdb2
   RCTRequired: 194626909cfa8d39ca6663138c417bc6c431648c
@@ -1496,6 +1553,8 @@ SPEC CHECKSUMS:
   React-jsitracing: 34bc0fbc606f69e66f05286d94d5cd6cbf2ef562
   React-logger: 29fa3e048f5f67fe396bc08af7606426d9bd7b5d
   React-Mapbuffer: 86703e9e4f6522053568300827b436ccc01e1101
+  react-native-pager-view: aaececfeafc9f598028af4fcc3147551b3254252
+  react-native-razorpay: 0272dd684bc9148828c54a72e05059e3e2e8b813
   react-native-safe-area-context: 583e6d44b8500e4d4738119118d1fc01d754bfc0
   react-native-smkit-ui: 4bbc517fd6f252eb620ebce39a435fcf76964d17
   react-native-splash-screen: 4312f786b13a81b5169ef346d76d33bc0c6dc457
@@ -1528,6 +1587,7 @@ SPEC CHECKSUMS:
   RNGestureHandler: c1f73e6a370aa936966d0d117f96e4699945d064
   RNScreens: 772e82e20a1f1ab1085e35d1bbba107f11d72696
   RNSVG: d956b40703d2292f808d57c9ee5452c46ac6b4b1
+  RNVectorIcons: 3e3d9442edd8b15b0ef3cac19960048380a10399
   SMBase: 43537e78677e51eb07ca11f0c92e05aa7ea1d9f5
   SMKit: 27385cc3ab1de255148e547ca533594ef37c1d08
   SMKitUI: d58c610fb25c12b445de0f64f9df3019d26a7690
@@ -1536,6 +1596,6 @@ SPEC CHECKSUMS:
   Yoga: 9ad2c02dbd9811bb5a35fe23081cb0f5d5a3f9dd
   ZIPFoundation: b8c29ea7ae353b309bc810586181fd073cb3312c
 
-PODFILE CHECKSUM: 81a62ad6b5906fcd580d493597d693b94d626faf
+PODFILE CHECKSUM: 28eb728215576dde32a5b169bd4cb1a377c2e425
 
 COCOAPODS: 1.16.2

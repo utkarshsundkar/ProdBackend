@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
   TextInput,
 } from 'react-native';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../src/api.js';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
@@ -41,6 +42,9 @@ import PropTypes from 'prop-types';
 import { useIsFocused } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { addPerformedExercises } from '../utils/exerciseTracker';
+import RazorpayPayment from '../src/components/RazorpayPayment';
+import { useNightMode } from '../context/NightModeContext';
+import AuthContext from '../context/AuthContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -55,7 +59,12 @@ function formatExerciseName(name) {
     .trim();
 }
 
-const App = ({ isNightMode, setIsNightMode }) => {
+const App = () => {
+  const { isNightMode, setIsNightMode } = useNightMode();
+  const { user } = useContext(AuthContext);
+  
+  // Get user ID from logged-in user
+  const userId = user?._id || user?.id;
   const [didConfig, setDidConfig] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [customWorkoutLoading, setCustomWorkoutLoading] = useState(false);
@@ -1342,37 +1351,34 @@ const App = ({ isNightMode, setIsNightMode }) => {
 
   // Update the search handler to only search visible items
   const handleSearch = (text: string) => {
-    setSearchText(text);
-    setSearchPerformed(true);
     if (!text.trim()) {
       setSearchResults([]);
-      setSearchPerformed(false);
       return;
     }
-    const lowerText = text.toLowerCase();
-    // Only search in visible body parts
-    const bodyPartMatches = bodyParts.filter(bp => visibleBodyParts.includes(bp.label) && bp.label.toLowerCase().includes(lowerText));
-    // Only search in plans for visible body parts
-    const visiblePlanIds = visibleBodyParts.map(label => bodyPartToPlanId[label]);
-    const planMatches = planData.filter(plan => visiblePlanIds.includes(plan.id) && plan.name.toLowerCase().includes(lowerText));
-    // Only search in exercises within visible plans
-    const exerciseMatches: any[] = [];
-    planData.forEach(plan => {
-      if (visiblePlanIds.includes(plan.id) && plan.exercises) {
-        plan.exercises.forEach((ex: any) => {
-          if (ex.name && ex.name.toLowerCase().includes(lowerText)) {
-            exerciseMatches.push({ ...ex, planName: plan.name });
-          }
-        });
-      }
-    });
-    // Combine results
+
+    const searchTerm = text.toLowerCase();
+    const exerciseMatches = exercises.filter(exercise =>
+      exercise.toLowerCase().includes(searchTerm)
+    );
+
     const results = [
-      ...planMatches.map(plan => ({ type: 'plan', data: plan })),
-      ...bodyPartMatches.map(bp => ({ type: 'bodyPart', data: bp })),
       ...exerciseMatches.map(ex => ({ type: 'exercise', data: ex })),
     ];
     setSearchResults(results);
+  };
+
+  const configureSMKitUI = async () => {
+    setIsLoading(true);
+    try {
+      
+      var res = await configure("public_live_ENl0bawcspDkVlGFaB");
+      console.log("Configuration successful:", res);
+      setIsLoading(false);
+      setDidConfig(true);
+    } catch (e) {
+      setIsLoading(false);
+      Alert.alert('Configure Failed', e.message, [{ text: 'OK', onPress: () => console.log('OK Pressed') }]);
+    }
   };
 
   useEffect(() => {
@@ -1431,10 +1437,7 @@ const App = ({ isNightMode, setIsNightMode }) => {
     return { strengths, improvements };
   };
 
-    const userId = "6853e136a4d5b09d329515ff";
-
-
- const handleEvent = async (summary) => {
+    const handleEvent = async (summary) => {
   if (!isFocused) return;
   try {
     console.log('Event received:', summary);
@@ -1564,8 +1567,9 @@ const App = ({ isNightMode, setIsNightMode }) => {
             plan.id === 'hiit-workout' || 
             plan.id === 'plank-core-stability'
           );
-          setSelectedPlan(burnCaloriesPlans[0]); // Show the first plan by default
-          setShowPlanModal(true);
+          if (burnCaloriesPlans.length > 0) {
+            handleTrainingPlanPress(burnCaloriesPlans[0]); // Use premium check
+          }
           break;
         // ... existing code ...
       }
@@ -2402,14 +2406,204 @@ const App = ({ isNightMode, setIsNightMode }) => {
     'Lower Back': 'lower-back',
   };
 
-  const handleBodyPartPress = (label) => {
-    const planId = bodyPartToPlanId[label];
-    const plan = planData.find(p => p.id === planId || p.id === Number(planId));
-    if (plan) {
-      setSelectedPlan(plan);
-      setShowPlanModal(true);
-      setShowBodyPartsModal(false);
-    }
+  // Payment success handler
+  const handlePaymentSuccess = () => {
+    Alert.alert('Payment Successful!', 'Your premium plan has been activated. You can now access all premium features!');
+    // Close the payment modal
+    setShowPaymentModal(false);
+    // Force a refresh of premium status by incrementing the counter
+    setPremiumStatusRefresh(prev => prev + 1);
+  };
+
+  const handleBodyPartPress = async (label) => {
+    // Check if user has premium access
+    const checkPremiumStatus = async () => {
+      try {
+        const authToken = await AsyncStorage.getItem('accessToken');
+        if (!authToken) {
+          setShowPaymentModal(true);
+          return;
+        }
+
+        // Check current user's premium status
+        const response = await fetch(`${BASE_URL}/users/current-user`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          const user = userData.data.user;
+          
+          console.log('🔍 User premium status:', user.isPremium);
+          console.log('🔍 User premium data:', user.premium);
+          
+          if (user.isPremium && user.premium) {
+            // Check if subscription is still valid
+            const expiryDate = new Date(user.premium.endDate);
+            const now = new Date();
+            
+            if (expiryDate > now) {
+              // User has active premium, proceed to body part workout
+              console.log('✅ User has active premium subscription');
+              const planId = bodyPartToPlanId[label];
+              const plan = planData.find(p => p.id === planId || p.id === Number(planId));
+              if (plan) {
+                setSelectedPlan(plan);
+                setShowPlanModal(true);
+                setShowBodyPartsModal(false);
+              }
+              return;
+            } else {
+              console.log('❌ Premium subscription expired');
+              setShowPaymentModal(true);
+              return;
+            }
+          } else {
+            console.log('❌ User is not premium');
+            setShowPaymentModal(true);
+            return;
+          }
+        } else {
+          console.log('❌ Failed to get user data');
+          setShowPaymentModal(true);
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Error checking premium status:', error);
+        setShowPaymentModal(true);
+        return;
+      }
+    };
+
+    checkPremiumStatus();
+  };
+
+  const handleTrainingPlanPress = async (plan) => {
+    // Check if user has premium access
+    const checkPremiumStatus = async () => {
+      try {
+        const authToken = await AsyncStorage.getItem('accessToken');
+        if (!authToken) {
+          setShowPaymentModal(true);
+          return;
+        }
+
+        // Check current user's premium status
+        const response = await fetch(`${BASE_URL}/users/current-user`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          const user = userData.data.user;
+          
+          console.log('🔍 User premium status:', user.isPremium);
+          console.log('🔍 User premium data:', user.premium);
+          
+          if (user.isPremium && user.premium) {
+            // Check if subscription is still valid
+            const expiryDate = new Date(user.premium.endDate);
+            const now = new Date();
+            
+            if (expiryDate > now) {
+              // User has active premium, proceed to training plan
+              console.log('✅ User has active premium subscription');
+              setSelectedPlan(plan);
+              setPlanModalTitleOverride(plan.name);
+              setPlanModalImageOverride(plan.image);
+              setShowSeeAllModal(false);
+              setShowPlanModal(true);
+              return;
+            } else {
+              console.log('❌ Premium subscription expired');
+              setShowPaymentModal(true);
+              return;
+            }
+          } else {
+            console.log('❌ User is not premium');
+            setShowPaymentModal(true);
+            return;
+          }
+        } else {
+          console.log('❌ Failed to get user data');
+          setShowPaymentModal(true);
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Error checking premium status:', error);
+        setShowPaymentModal(true);
+        return;
+      }
+    };
+
+    checkPremiumStatus();
+  };
+
+  const handleCustomWorkoutPress = async (action: 'create' | 'start') => {
+    // Check if user has premium access
+    const checkPremiumStatus = async () => {
+      try {
+        const authToken = await AsyncStorage.getItem('accessToken');
+        if (!authToken) {
+          setShowPaymentModal(true);
+          return;
+        }
+
+        // Check current user's premium status
+        const response = await fetch(`${BASE_URL}/users/current-user`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          const user = userData.data.user;
+          
+          console.log('🔍 User premium status:', user.isPremium);
+          console.log('🔍 User premium data:', user.premium);
+          
+          if (user.isPremium && user.premium) {
+            // Check if subscription is still valid
+            const expiryDate = new Date(user.premium.endDate);
+            const now = new Date();
+            
+            if (expiryDate > now) {
+              // User has active premium, proceed with custom workout action
+              console.log('✅ User has active premium subscription');
+              if (action === 'create') {
+                setShowDIYModal(true);
+              } else if (action === 'start') {
+                setShowCustomPlanModal(true);
+              }
+              return;
+            } else {
+              console.log('❌ Premium subscription expired');
+              setShowPaymentModal(true);
+              return;
+            }
+          } else {
+            console.log('❌ User is not premium');
+            setShowPaymentModal(true);
+            return;
+          }
+        } else {
+          console.log('❌ Failed to get user data');
+          setShowPaymentModal(true);
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Error checking premium status:', error);
+        setShowPaymentModal(true);
+        return;
+      }
+    };
+
+    checkPremiumStatus();
   };
 
   // Add state for body parts modal search
@@ -2470,6 +2664,10 @@ const App = ({ isNightMode, setIsNightMode }) => {
   const [editingDay, setEditingDay] = useState<string | null>(null);
   const [editDayInput, setEditDayInput] = useState('');
 
+  // Payment modal state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [premiumStatusRefresh, setPremiumStatusRefresh] = useState(0); // Force refresh counter
+
 //======================================
 
 useFocusEffect(
@@ -2518,7 +2716,7 @@ useFocusEffect(
 
   return (
     <SafeAreaView style={[styles.safeArea, isNightMode && { backgroundColor: '#111' }]}>
-      <ScrollView contentContainerStyle={[styles.mainContainer, { flexGrow: 1 }, isNightMode && { backgroundColor: '#111' }]}>
+      <ScrollView contentContainerStyle={[styles.mainContainer, { flexGrow: 1, paddingBottom: Platform.OS === 'ios' ? 120 : 80 }, isNightMode && { backgroundColor: '#111' }]}>
       {isLoading && <ActivityIndicator size="large" color="#C4A484" />}
       
         {/* Credit Counter at Top Right (restored) */}
@@ -2738,7 +2936,7 @@ useFocusEffect(
                     style={{ width: '100%', height: 220, borderTopLeftRadius: 0, borderTopRightRadius: 0, borderRadius: 0, resizeMode: 'cover' }}
                   />
                   {/* Plan Info Header and all modal content in a ScrollView */}
-                  <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={{ padding: 24, paddingBottom: 120 }}>
+                  <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={{ padding: 24, paddingBottom: Platform.OS === 'ios' ? 100 : 80 }}>
                     <Text style={{ color: isNightMode ? '#fff' : '#111', fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>{planModalTitleOverride || selectedPlan.name}</Text>
                     <View style={{ flexDirection: 'row', marginTop: 8, marginBottom: 16, justifyContent: 'center', alignItems: 'center' }}>
                       <View style={{ alignItems: 'center' }}>
@@ -2988,7 +3186,7 @@ useFocusEffect(
               {searchResults.map((result, idx) => {
                 if (result.type === 'plan') {
   return (
-                    <TouchableOpacity key={idx} onPress={() => { setSelectedPlan(result.data); setShowPlanModal(true); }} style={{ padding: 12, backgroundColor: '#fff', borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: '#eee' }}>
+                    <TouchableOpacity key={idx} onPress={() => handleTrainingPlanPress(result.data)} style={{ padding: 12, backgroundColor: '#fff', borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: '#eee' }}>
                       <Text style={{ fontWeight: 'bold', fontSize: 17, color: '#111' }}>{result.data.name}</Text>
                       <Text style={{ color: '#888', fontSize: 14 }}>Plan</Text>
                     </TouchableOpacity>
@@ -3050,14 +3248,7 @@ useFocusEffect(
               marginTop: 4, // reduce from 6
             }}
             onPress={async () => {
-              setIsLoading(true);
-              // await startAssessmentSession(
-              //   SMWorkoutLibrary.AssessmentTypes.Fitness,
-              //   true,
-              //   ''
-              // );
-              setIsLoading(false);
-              setShowDIYModal(true);
+              handleCustomWorkoutPress('create');
             }}
           >
             <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Custom</Text>
@@ -3112,7 +3303,7 @@ useFocusEffect(
   }}>
     <View style={{ flex: 1, justifyContent: 'center' }}>
       <Text style={{ color: '#1db954', fontSize: 16, marginBottom: 2 }}>{todayName}</Text>
-      <Text style={{ fontWeight: 'bold', fontSize: 20, color: '#222', marginBottom: 2 }}>{todayCustomPlan?.name}</Text>
+      <Text style={{ fontWeight: 'bold', fontSize: 20, color: '#222', marginBottom: 2 }}>{todayCustomPlan?.name || todayCustomName || 'Custom Workout'}</Text>
       {todayCustomPlan?.exercises.length > 0 ? (
         todayCustomPlan.exercises.map((ex, idx) => (
           <Text key={idx} style={{ color: '#222', fontSize: 15, marginBottom: 2 }}>
@@ -3135,7 +3326,7 @@ useFocusEffect(
         backgroundColor: 'transparent',
         overflow: 'hidden',
       }}
-      onPress={() => setShowCustomPlanModal(true)}
+      onPress={() => handleCustomWorkoutPress('start')}
     >
       <Image
         source={require('../assets/PlayButton2.png')}
@@ -3285,10 +3476,7 @@ useFocusEffect(
               onPress={() => {
                 const thighsPlan = planData.find(p => p.id === 'thighs' || p.name === 'Thighs');
                 if (thighsPlan) {
-                  setSelectedPlan(thighsPlan);
-                  setPlanModalTitleOverride('Leg Day Ignite');
-                  setPlanModalImageOverride(require('../assets/Hips.png'));
-                  setShowPlanModal(true);
+                  handleTrainingPlanPress(thighsPlan);
                 }
               }}
             >
@@ -3334,10 +3522,7 @@ useFocusEffect(
               onPress={() => {
                 const upperBodyPlan = planData.find(p => p.id === 'upper-body-strength' || p.name === 'Upper Body Strength');
                 if (upperBodyPlan) {
-                  setSelectedPlan(upperBodyPlan);
-                  setPlanModalTitleOverride('Upper Body Strength');
-                  setPlanModalImageOverride(require('../assets/Shoulder.png'));
-                  setShowPlanModal(true);
+                  handleTrainingPlanPress(upperBodyPlan);
                 }
               }}
             >
@@ -3383,10 +3568,7 @@ useFocusEffect(
               onPress={() => {
                 const fullBodyPlan = planData.find(p => p.id === 'full-body-builder' || p.name === 'Full-Body Builder');
                 if (fullBodyPlan) {
-                  setSelectedPlan(fullBodyPlan);
-                  setPlanModalTitleOverride('Full-Body Builder');
-                  setPlanModalImageOverride(require('../assets/pushups.png'));
-                  setShowPlanModal(true);
+                  handleTrainingPlanPress(fullBodyPlan);
                 }
               }}
             >
@@ -3447,10 +3629,7 @@ useFocusEffect(
               onPress={() => {
                 const hiitPlan = planData.find(p => p.id === 'hiit-express' || p.name === 'HIIT Express');
                 if (hiitPlan) {
-                  setSelectedPlan(hiitPlan);
-                  setPlanModalTitleOverride('HIIT Express');
-                  setPlanModalImageOverride(require('../assets/highknees.png'));
-                  setShowPlanModal(true);
+                  handleTrainingPlanPress(hiitPlan);
                 }
               }}
             >
@@ -3496,10 +3675,7 @@ useFocusEffect(
               onPress={() => {
                 const cardioPlan = planData.find(p => p.id === 'cardio-crusher' || p.name === 'Cardio Crusher');
                 if (cardioPlan) {
-                  setSelectedPlan(cardioPlan);
-                  setPlanModalTitleOverride('Cardio Crusher');
-                  setPlanModalImageOverride(require('../assets/skijump.png'));
-                  setShowPlanModal(true);
+                  handleTrainingPlanPress(cardioPlan);
                 }
               }}
             >
@@ -3545,10 +3721,7 @@ useFocusEffect(
               onPress={() => {
                 const sweatCircuitPlan = planData.find(p => p.id === 'sweat-circuit' || p.name === 'Sweat Circuit');
                 if (sweatCircuitPlan) {
-                  setSelectedPlan(sweatCircuitPlan);
-                  setPlanModalTitleOverride('Sweat Circuit');
-                  setPlanModalImageOverride(require('../assets/jumpingjack.png'));
-                  setShowPlanModal(true);
+                  handleTrainingPlanPress(sweatCircuitPlan);
                 }
               }}
             >
@@ -4109,13 +4282,7 @@ useFocusEffect(
                 <View key={plan.id || plan.name} style={{ marginRight: 18 }}>
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                      setSelectedPlan(plan);
-                      setPlanModalTitleOverride(plan.name);
-                      setPlanModalImageOverride(plan.image);
-                      setShowSeeAllModal(false);
-                      setShowPlanModal(true);
-                    }}
+                    onPress={() => handleTrainingPlanPress(plan)}
                   >
                     <View style={{
                       width: 260,
@@ -4170,13 +4337,7 @@ useFocusEffect(
                 <View key={plan.id || plan.name} style={{ marginRight: 18 }}>
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                      setSelectedPlan(plan);
-                      setPlanModalTitleOverride(plan.name);
-                      setPlanModalImageOverride(plan.image);
-                      setShowSeeAllModal(false);
-                      setShowPlanModal(true);
-                    }}
+                    onPress={() => handleTrainingPlanPress(plan)}
                   >
                     <View style={{
                       width: 260,
@@ -4230,13 +4391,7 @@ useFocusEffect(
                 <View key={plan.id || plan.name} style={{ marginRight: 18 }}>
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                      setSelectedPlan(plan);
-                      setPlanModalTitleOverride(plan.name);
-                      setPlanModalImageOverride(plan.image);
-                      setShowSeeAllModal(false);
-                      setShowPlanModal(true);
-                    }}
+                    onPress={() => handleTrainingPlanPress(plan)}
                   >
                     <View style={{
                       width: 260,
@@ -4291,13 +4446,7 @@ useFocusEffect(
                 <View key={plan.id || plan.name} style={{ marginRight: 18 }}>
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                      setSelectedPlan(plan);
-                      setPlanModalTitleOverride(plan.name);
-                      setPlanModalImageOverride(plan.image);
-                      setShowSeeAllModal(false);
-                      setShowPlanModal(true);
-                    }}
+                    onPress={() => handleTrainingPlanPress(plan)}
                   >
                     <View style={{
                       width: 260,
@@ -4353,13 +4502,7 @@ useFocusEffect(
                 <View key={plan.id || plan.name} style={{ marginRight: 18 }}>
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                      setSelectedPlan(plan);
-                      setPlanModalTitleOverride(plan.name);
-                      setPlanModalImageOverride(plan.image);
-                      setShowSeeAllModal(false);
-                      setShowPlanModal(true);
-                    }}
+                    onPress={() => handleTrainingPlanPress(plan)}
                   >
                     <View style={{
                       width: 260,
@@ -4411,13 +4554,7 @@ useFocusEffect(
                 <View key={plan.id || plan.name} style={{ marginRight: 18 }}>
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                      setSelectedPlan(plan);
-                      setPlanModalTitleOverride(plan.name);
-                      setPlanModalImageOverride(plan.image);
-                      setShowSeeAllModal(false);
-                      setShowPlanModal(true);
-                    }}
+                    onPress={() => handleTrainingPlanPress(plan)}
                   >
                     <View style={{
                       width: 260,
@@ -4472,13 +4609,7 @@ useFocusEffect(
                 <View key={plan.id || plan.name} style={{ marginRight: 18 }}>
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                      setSelectedPlan(plan);
-                      setPlanModalTitleOverride(plan.name);
-                      setPlanModalImageOverride(plan.image);
-                      setShowSeeAllModal(false);
-                      setShowPlanModal(true);
-                    }}
+                    onPress={() => handleTrainingPlanPress(plan)}
                   >
                     <View style={{
                       width: 260,
@@ -4534,13 +4665,7 @@ useFocusEffect(
                 <View key={plan.id || plan.name} style={{ marginRight: 18 }}>
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                      setSelectedPlan(plan);
-                      setPlanModalTitleOverride(plan.name);
-                      setPlanModalImageOverride(plan.image);
-                      setShowSeeAllModal(false);
-                      setShowPlanModal(true);
-                    }}
+                    onPress={() => handleTrainingPlanPress(plan)}
                   >
                     <View style={{
                       width: 260,
@@ -4591,13 +4716,7 @@ useFocusEffect(
                 <View key={plan.id || plan.name} style={{ marginRight: 18 }}>
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                      setSelectedPlan(plan);
-                      setPlanModalTitleOverride(plan.name);
-                      setPlanModalImageOverride(plan.image);
-                      setShowSeeAllModal(false);
-                      setShowPlanModal(true);
-                    }}
+                    onPress={() => handleTrainingPlanPress(plan)}
                   >
                     <View style={{
                       width: 260,
@@ -4642,509 +4761,503 @@ useFocusEffect(
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Payment Modal */}
+      <RazorpayPayment
+        visible={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSuccess={handlePaymentSuccess}
+      />
     </SafeAreaView>
   );
-
-  async function configureSMKitUI() {
-    setIsLoading(true);
-    try {
-      
-      var res = await configure("public_live_ENl0bawcspDkVlGFaB");
-      console.log("Configuration successful:", res);
-      setIsLoading(false);
-      setDidConfig(true);
-    } catch (e) {
-      setIsLoading(false);
-      Alert.alert('Configure Failed', e.message, [{ text: 'OK', onPress: () => console.log('OK Pressed') }]);
-    }
-  }
-
-  async function startWorkoutProgramSession() {
-    try {
-      const parsedWeek = parseInt(week, 10);
-      if (isNaN(parsedWeek)) {
-        throw new Error('Invalid week number');
-      }
-      var config = new SMWorkoutLibrary.WorkoutConfig(
-        parsedWeek,
-        bodyZone,
-        difficulty,
-        duration,
-        language,
-        name,
-      );
-      var result = await startWorkoutProgram(config);
-      console.log(result.summary);
-      console.log(result.didFinish);
-    } catch (e) {
-      Alert.alert('Unable to start workout program', e.message, [{ text: 'OK', onPress: () => console.log('OK Pressed') }]);
-    }
-  }
-  async function startAssessmentSession(
-    type: SMWorkoutLibrary.AssessmentTypes,
-    showSummary: boolean,
-    customAssessmentID: string
-  ) {
-    try {
-      console.log('Starting assessment with type:', type);
-      const result = await startAssessment(
-        type,
-        showSummary,
-        null,
-        false,
-        customAssessmentID
-      );
-      console.log('Assessment result:', result.summary);
-      console.log('Did finish:', result.didFinish);
-      // Set summary and show modal directly (cross-platform)
-      setSummaryMessage(result.summary);
-      let parsed: any = null;
-      try {
-        parsed = JSON.parse(result.summary);
-        setParsedSummaryData(parsed);
-      } catch (e) {
-        setParsedSummaryData(null);
-      }
-      setModalVisible(true);
-    } catch (e) {
-      console.error('Assessment error:', e);
-      Alert.alert('Unable to start assessment', e.message);
-    }
-  }
-
-  async function startSMKitUICustomWorkout() {
-    try {
-      var exercises = [
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'SquatRegularOverheadStatic',
-          30,
-          'SquatRegularOverheadStatic',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.GaugeOfMotion,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'SquatRegularOverheadStatic',
-          'stam',
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Time,
-            0.5,
-            20,
-            null,
-            null,
-            null,
-          ),
-          '',
-          'SquatRegularOverheadStatic',
-          'Subtitle',
-          'timeInPosition',
-          'clean reps'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'Jefferson Curl',
-          30,
-          'JeffersonCurlRight',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.GaugeOfMotion,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'JeffersonCurlRight',
-          'stam',
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Time,
-            0.5,
-            20,
-            null,
-            null,
-            null,
-          ),
-          '',
-          'JeffersonCurlRight',
-          'Subtitle',
-          'timeInPosition',
-          'clean reps'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'Push-Up',
-          30,
-          'PushupRegular',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.RepsCounter,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'PushupRegular',
-          'stam',
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Reps,
-            0.5,
-            null,
-            6,
-            null,
-            null,
-          ),
-          '',
-          'PushupRegular',
-          'Subtitle',
-          'Reps',
-          'clean reps'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'LungeFrontRight',
-          30,
-          'LungeFrontRight',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.GaugeOfMotion,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'LungeFront',
-          'stam',
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Reps,
-            0.5,
-            null,
-            20,
-            null,
-            null,
-          ),
-          '',
-          'LungeFrontRight',
-          'Subtitle',
-          'timeInPosition',
-          'clean reps'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'LungeFrontLeft',
-          30,
-          'LungeFrontLeft',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.GaugeOfMotion,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'LungeFront',
-          'stam',
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Reps,
-            0.5,
-            null,
-            20,
-            null,
-            null,
-          ),
-          '',
-          'LungeFrontLeft',
-          'Subtitle',
-          'timeInPosition',
-          'clean reps'
-        ),
-      ];
-
-      var assessment = new SMWorkoutLibrary.SMWorkout(
-        '50',
-        'demo workout',
-        null,
-        null,
-        exercises,
-        null,
-        null,
-        null,
-      );
-
-      var result = await startCustomWorkout(assessment);
-      console.log(result.summary);
-      console.log(result.didFinish);
-    } catch (e) {
-      console.error(e);
-      showAlert('Custom workout error', e.message);
-    }
-  }
-
-  async function startSMKitUICustomAssessment() {
-    try {
-      // Set language and preferences first
-      await setSessionLanguage(SMWorkoutLibrary.Language.Hebrew);
-      setEndExercisePreferences(SMWorkoutLibrary.EndExercisePreferences.TargetBased);
-      setCounterPreferences(SMWorkoutLibrary.CounterPreferences.PerfectOnly);
-
-      // Optional: Use local sound files instead of URLs
-      const successSound = '';  // Remove URL and use local file or leave empty
-      const failedSound = '';   // Remove URL and use local file or leave empty
-
-      const exercises = [
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'SquatRegular',
-          35,
-          'SquatRegular',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.RepsCounter,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'SquatRegular',
-          successSound,
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Reps,
-            0.3,
-            null,
-            5,
-            null,
-            null,
-          ),
-          failedSound,
-          'SquatRegular',
-          'Subtitle',
-          'Reps',
-          'clean reps'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'LungeFront',
-          35,
-          'LungeFront',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.RepsCounter,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'LungeFront',
-          successSound,
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Reps,
-            0.3,
-            null,
-            5,
-            null,
-            null,
-          ),
-          failedSound,
-          'LungeFront',
-          'Subtitle',
-          'Reps',
-          'clean reps'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'HighKnees',
-          35,
-          'HighKnees',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.RepsCounter,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'HighKnees',
-          successSound,
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Reps,
-            0.3,
-            null,
-            5,
-            null,
-            null,
-          ),
-          failedSound,
-          'HighKnees',
-          'Subtitle',
-          'Reps',
-          'clean reps'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'SquatRegularOverheadStatic',
-          35,
-          'SquatRegularOverheadStatic',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.RepsCounter,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'SquatRegularOverheadStatic',
-          successSound,
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Time,
-            0.3,
-            15,
-            null,
-            null,
-            null,
-          ),
-          failedSound,
-          'SquatRegularOverheadStatic',
-          'Subtitle',
-          'Time',
-          'seconds held'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'PlankHighStatic',
-          35,
-          'PlankHighStatic',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.RepsCounter,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'PlankHighStatic',
-          successSound,
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Time,
-            0.3,
-            15,
-            null,
-            null,
-            null,
-          ),
-          failedSound,
-          'PlankHighStatic',
-          'Subtitle',
-          'Time',
-          'seconds held'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'StandingSideBendRight',
-          35,
-          'StandingSideBendRight',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.RepsCounter,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'StandingSideBendRight',
-          successSound,
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Time,
-            0.3,
-            15,
-            null,
-            null,
-            null,
-          ),
-          failedSound,
-          'StandingSideBendRight',
-          'Subtitle',
-          'Time',
-          'seconds held'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'Jefferson Curl',
-          35,
-          'JeffersonCurlRight',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.GaugeOfMotion,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'JeffersonCurlRight',
-          successSound,
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Time,
-            0.3,
-            15,
-            null,
-            null,
-            null,
-          ),
-          failedSound,
-          'JeffersonCurlRight',
-          'Subtitle',
-          'Time',
-          'seconds held'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'Standing Hamstring Mobility',
-          35,
-          'StandingHamstringMobility',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.GaugeOfMotion,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'StandingAlternateToeTouch',
-          successSound,
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Time,
-            0.3,
-            15,
-            null,
-            null,
-            null,
-          ),
-          failedSound,
-          'StandingAlternateToeTouch',
-          'Subtitle',
-          'Time',
-          'seconds held'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'Oblique Crunches',
-          35,
-          'Oblique Crunches',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.RepsCounter,
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'Oblique Crunches',
-          successSound,
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Reps,
-            0.3,
-            null,
-            5,
-            null,
-            null,
-          ),
-          failedSound,
-          'Oblique Crunches',
-          'Subtitle',
-          'Reps',
-          'clean reps'
-        ),
-        new SMWorkoutLibrary.SMAssessmentExercise(
-          'Tuck Hold',
-          35,
-          'Tuck Hold',
-          null,
-          [
-            SMWorkoutLibrary.UIElement.Timer,
-          ],
-          'Tuck Hold',
-          successSound,
-          new SMWorkoutLibrary.SMScoringParams(
-            SMWorkoutLibrary.ScoringType.Time,
-            0.3,
-            15,
-            null,
-            null,
-            null,
-          ),
-          failedSound,
-          'Tuck Hold',
-          'Subtitle',
-          'Time',
-          'seconds held'
-        ),
-      ];
-
-      var assessment = new SMWorkoutLibrary.SMWorkout(
-        '50',
-        'demo workout',
-        null,
-        null,
-        exercises,
-        null,
-        null,
-        null,
-      );
-
-      var result = await startCustomAssessment(assessment, null, true, false);
-      console.log('Assessment result:', result.summary);
-      console.log('Did finish:', result.didFinish);
-    } catch (e) {
-      console.error('Custom assessment error:', e);
-      showAlert('Custom assessment error', e.message);
-    }
-  }
 };
+
+
+async function startWorkoutProgramSession() {
+  try {
+    const parsedWeek = parseInt(week, 10);
+    if (isNaN(parsedWeek)) {
+      throw new Error('Invalid week number');
+    }
+    var config = new SMWorkoutLibrary.WorkoutConfig(
+      parsedWeek,
+      bodyZone,
+      difficulty,
+      duration,
+      language,
+      name,
+    );
+    var result = await startWorkoutProgram(config);
+    console.log(result.summary);
+    console.log(result.didFinish);
+  } catch (e) {
+    Alert.alert('Unable to start workout program', e.message, [{ text: 'OK', onPress: () => console.log('OK Pressed') }]);
+  }
+}
+async function startAssessmentSession(
+  type: SMWorkoutLibrary.AssessmentTypes,
+  showSummary: boolean,
+  customAssessmentID: string
+) {
+  try {
+    console.log('Starting assessment with type:', type);
+    const result = await startAssessment(
+      type,
+      showSummary,
+      null,
+      false,
+      customAssessmentID
+    );
+    console.log('Assessment result:', result.summary);
+    console.log('Did finish:', result.didFinish);
+    // Set summary and show modal directly (cross-platform)
+    setSummaryMessage(result.summary);
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(result.summary);
+      setParsedSummaryData(parsed);
+    } catch (e) {
+      setParsedSummaryData(null);
+    }
+    setModalVisible(true);
+  } catch (e) {
+    console.error('Assessment error:', e);
+    Alert.alert('Unable to start assessment', e.message);
+  }
+}
+
+async function startSMKitUICustomWorkout() {
+  try {
+    var exercises = [
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'SquatRegularOverheadStatic',
+        30,
+        'SquatRegularOverheadStatic',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.GaugeOfMotion,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'SquatRegularOverheadStatic',
+        'stam',
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Time,
+          0.5,
+          20,
+          null,
+          null,
+          null,
+        ),
+        '',
+        'SquatRegularOverheadStatic',
+        'Subtitle',
+        'timeInPosition',
+        'clean reps'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'Jefferson Curl',
+        30,
+        'JeffersonCurlRight',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.GaugeOfMotion,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'JeffersonCurlRight',
+        'stam',
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Time,
+          0.5,
+          20,
+          null,
+          null,
+          null,
+        ),
+        '',
+        'JeffersonCurlRight',
+        'Subtitle',
+        'timeInPosition',
+        'clean reps'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'Push-Up',
+        30,
+        'PushupRegular',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.RepsCounter,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'PushupRegular',
+        'stam',
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Reps,
+          0.5,
+          null,
+          6,
+          null,
+          null,
+        ),
+        '',
+        'PushupRegular',
+        'Subtitle',
+        'Reps',
+        'clean reps'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'LungeFrontRight',
+        30,
+        'LungeFrontRight',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.GaugeOfMotion,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'LungeFront',
+        'stam',
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Reps,
+          0.5,
+          null,
+          20,
+          null,
+          null,
+        ),
+        '',
+        'LungeFrontRight',
+        'Subtitle',
+        'timeInPosition',
+        'clean reps'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'LungeFrontLeft',
+        30,
+        'LungeFrontLeft',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.GaugeOfMotion,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'LungeFront',
+        'stam',
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Reps,
+          0.5,
+          null,
+          20,
+          null,
+          null,
+        ),
+        '',
+        'LungeFrontLeft',
+        'Subtitle',
+        'timeInPosition',
+        'clean reps'
+      ),
+    ];
+
+    var assessment = new SMWorkoutLibrary.SMWorkout(
+      '50',
+      'demo workout',
+      null,
+      null,
+      exercises,
+      null,
+      null,
+      null,
+    );
+
+    var result = await startCustomWorkout(assessment);
+    console.log(result.summary);
+    console.log(result.didFinish);
+  } catch (e) {
+    console.error(e);
+    showAlert('Custom workout error', e.message);
+  }
+}
+
+async function startSMKitUICustomAssessment() {
+  try {
+    // Set language and preferences first
+    await setSessionLanguage(SMWorkoutLibrary.Language.Hebrew);
+    setEndExercisePreferences(SMWorkoutLibrary.EndExercisePreferences.TargetBased);
+    setCounterPreferences(SMWorkoutLibrary.CounterPreferences.PerfectOnly);
+
+    // Optional: Use local sound files instead of URLs
+    const successSound = '';  // Remove URL and use local file or leave empty
+    const failedSound = '';   // Remove URL and use local file or leave empty
+
+    const exercises = [
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'SquatRegular',
+        35,
+        'SquatRegular',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.RepsCounter,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'SquatRegular',
+        successSound,
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Reps,
+          0.3,
+          null,
+          5,
+          null,
+          null,
+        ),
+        failedSound,
+        'SquatRegular',
+        'Subtitle',
+        'Reps',
+        'clean reps'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'LungeFront',
+        35,
+        'LungeFront',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.RepsCounter,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'LungeFront',
+        successSound,
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Reps,
+          0.3,
+          null,
+          5,
+          null,
+          null,
+        ),
+        failedSound,
+        'LungeFront',
+        'Subtitle',
+        'Reps',
+        'clean reps'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'HighKnees',
+        35,
+        'HighKnees',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.RepsCounter,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'HighKnees',
+        successSound,
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Reps,
+          0.3,
+          null,
+          5,
+          null,
+          null,
+        ),
+        failedSound,
+        'HighKnees',
+        'Subtitle',
+        'Reps',
+        'clean reps'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'SquatRegularOverheadStatic',
+        35,
+        'SquatRegularOverheadStatic',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.RepsCounter,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'SquatRegularOverheadStatic',
+        successSound,
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Time,
+          0.3,
+          15,
+          null,
+          null,
+          null,
+        ),
+        failedSound,
+        'SquatRegularOverheadStatic',
+        'Subtitle',
+        'Time',
+        'seconds held'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'PlankHighStatic',
+        35,
+        'PlankHighStatic',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.RepsCounter,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'PlankHighStatic',
+        successSound,
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Time,
+          0.3,
+          15,
+          null,
+          null,
+          null,
+        ),
+        failedSound,
+        'PlankHighStatic',
+        'Subtitle',
+        'Time',
+        'seconds held'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'StandingSideBendRight',
+        35,
+        'StandingSideBendRight',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.RepsCounter,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'StandingSideBendRight',
+        successSound,
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Time,
+          0.3,
+          15,
+          null,
+          null,
+          null,
+        ),
+        failedSound,
+        'StandingSideBendRight',
+        'Subtitle',
+        'Time',
+        'seconds held'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'Jefferson Curl',
+        35,
+        'JeffersonCurlRight',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.GaugeOfMotion,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'JeffersonCurlRight',
+        successSound,
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Time,
+          0.3,
+          15,
+          null,
+          null,
+          null,
+        ),
+        failedSound,
+        'JeffersonCurlRight',
+        'Subtitle',
+        'Time',
+        'seconds held'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'Standing Hamstring Mobility',
+        35,
+        'StandingHamstringMobility',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.GaugeOfMotion,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'StandingAlternateToeTouch',
+        successSound,
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Time,
+          0.3,
+          15,
+          null,
+          null,
+          null,
+        ),
+        failedSound,
+        'StandingAlternateToeTouch',
+        'Subtitle',
+        'Time',
+        'seconds held'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'Oblique Crunches',
+        35,
+        'Oblique Crunches',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.RepsCounter,
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'Oblique Crunches',
+        successSound,
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Reps,
+          0.3,
+          null,
+          5,
+          null,
+          null,
+        ),
+        failedSound,
+        'Oblique Crunches',
+        'Subtitle',
+        'Reps',
+        'clean reps'
+      ),
+      new SMWorkoutLibrary.SMAssessmentExercise(
+        'Tuck Hold',
+        35,
+        'Tuck Hold',
+        null,
+        [
+          SMWorkoutLibrary.UIElement.Timer,
+        ],
+        'Tuck Hold',
+        successSound,
+        new SMWorkoutLibrary.SMScoringParams(
+          SMWorkoutLibrary.ScoringType.Time,
+          0.3,
+          15,
+          null,
+          null,
+          null,
+        ),
+        failedSound,
+        'Tuck Hold',
+        'Subtitle',
+        'Time',
+        'seconds held'
+      ),
+    ];
+
+    var assessment = new SMWorkoutLibrary.SMWorkout(
+      '50',
+      'demo workout',
+      null,
+      null,
+      exercises,
+      null,
+      null,
+      null,
+    );
+
+    var result = await startCustomAssessment(assessment, null, true, false);
+    console.log('Assessment result:', result.summary);
+    console.log('Did finish:', result.didFinish);
+  } catch (e) {
+    console.error('Custom assessment error:', e);
+    showAlert('Custom assessment error', e.message);
+  }
+}
 
 function showAlert(title, message) {
   Alert.alert(title, message, [
@@ -5161,7 +5274,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingHorizontal: '3%',
     paddingTop: '3%',
-    paddingBottom: '3%',
+    paddingBottom: Platform.OS === 'ios' ? 120 : 80, // Add extra padding for bottom navigation bar + safe area
   },
   placeholderText: {
     fontSize: 24,
@@ -5765,10 +5878,5 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 });
-
-App.propTypes = {
-  isNightMode: PropTypes.bool.isRequired,
-  setIsNightMode: PropTypes.func.isRequired,
-};
 
 export default App;

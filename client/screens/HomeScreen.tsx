@@ -14,8 +14,10 @@ import {
   Dimensions,
   SafeAreaView,
   Platform,
+  Animated,
 } from 'react-native';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { BASE_URL } from '../src/api.js';
 import { useFocusEffect } from '@react-navigation/native';
@@ -45,6 +47,8 @@ import { useContext } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import AuthContext from '../context/AuthContext';
+import { useNightMode } from '../context/NightModeContext';
+import RazorpayPayment from '../src/components/RazorpayPayment';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -65,7 +69,8 @@ type RootStackParamList = {
   // add other routes if needed
 };
 
-const App = ({ isNightMode, setIsNightMode }) => {
+const App = () => {
+  const { isNightMode, setIsNightMode } = useNightMode();
   const [didConfig, setDidConfig] = useState(false);
   const [creditLoading, setCreditLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -93,6 +98,11 @@ const App = ({ isNightMode, setIsNightMode }) => {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [selectedLevel, setSelectedLevel] = useState('beginner');
   const [startDisabled, setStartDisabled] = useState(false);
+  const [showTodaysPlanModal, setShowTodaysPlanModal] = useState(false);
+
+  // Payment modal state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [premiumStatusRefresh, setPremiumStatusRefresh] = useState(0); // Force refresh counter
 
   const [lastScorePercent, setLastScorePercent] = useState(88); // Default to 88% for initial UI
   const [performedCount, setPerformedCount] = useState(0);
@@ -100,7 +110,10 @@ const App = ({ isNightMode, setIsNightMode }) => {
 
   const isFocused = useIsFocused();
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const { logout } = useContext(AuthContext);
+  const { logout, user } = useContext(AuthContext);
+
+  // Get user ID from logged-in user
+  const userId = user?._id || user?.id;
 
   // Add level durations mapping
   const levelDurations = {
@@ -112,7 +125,7 @@ const App = ({ isNightMode, setIsNightMode }) => {
   // Plan exercise data (example)
   const planData = [
     {
-      id: 1,
+      id: 'full-stack-fitness',
       name: 'Full Stack Fitness',
       level: 'All Levels',
       time: '30-45 min',
@@ -161,7 +174,7 @@ const App = ({ isNightMode, setIsNightMode }) => {
       ]
     },
     {
-      id: 2,
+      id: 'fat-burner',
       name: 'Fat Burner',
       level: 'All Levels',
       time: '20-30 min',
@@ -765,7 +778,7 @@ useEffect(() => {
   };
 
   //=================================
-   const userId = "6853e136a4d5b09d329515ff";
+  // const userId = "6853e136a4d5b09d329515ff"; // REMOVED - using logged-in user's ID instead
 
 //   useEffect(() => {
 //   if (!userId) return;
@@ -971,13 +984,55 @@ useFocusEffect(
     try {
       switch (category) {
         case 'Burn Calories Faster':
-          const burnCaloriesPlans = planData.filter(plan => 
-            plan.id === 'fat-burner' || 
-            plan.id === 'hiit-workout' || 
-            plan.id === 'plank-core-stability'
-          );
-          setSelectedPlan(burnCaloriesPlans[0]); // Show the first plan by default
-          setShowPlanModal(true);
+          // Check if user has premium access
+          const checkPremiumStatus = async () => {
+            try {
+              const authToken = await AsyncStorage.getItem('accessToken');
+              if (!authToken) {
+                setShowPaymentModal(true);
+                return;
+              }
+              // Check current user's premium status
+              const response = await fetch(`${BASE_URL}/users/current-user`, {
+                headers: {
+                  'Authorization': `Bearer ${authToken}`
+                }
+              });
+              if (response.ok) {
+                const userData = await response.json();
+                const user = userData.data.user;
+                if (user.isPremium && user.premium) {
+                  // Check if subscription is still valid
+                  const expiryDate = new Date(user.premium.endDate);
+                  const now = new Date();
+                  if (expiryDate > now) {
+                    // User has active premium, proceed with workout selection
+                    const burnCaloriesPlans = planData.filter(plan => 
+                      plan.id === 'fat-burner' || 
+                      plan.id === 'hiit-workout' || 
+                      plan.id === 'plank-core-stability'
+                    );
+                    setSelectedPlan(burnCaloriesPlans[0]); // Show the first plan by default
+                    setShowPlanModal(true);
+                    return;
+                  } else {
+                    setShowPaymentModal(true);
+                    return;
+                  }
+                } else {
+                  setShowPaymentModal(true);
+                  return;
+                }
+              } else {
+                setShowPaymentModal(true);
+                return;
+              }
+            } catch (error) {
+              setShowPaymentModal(true);
+              return;
+            }
+          };
+          checkPremiumStatus();
           break;
         // ... existing code ...
       }
@@ -1771,133 +1826,339 @@ useFocusEffect(
     }
   };
 
-  // --- Today's Plan Section State ---
-  const [showTodaysPlanModal, setShowTodaysPlanModal] = useState(false);
-  const todaysPlanSections = [
+  // --- Weekly Plans ---
+  const weeklyPlans = [
     {
-      title: 'WARM-UP',
-      color: '#F44336',
-      icon: '🔥',
-      description: 'Perform each for 30 seconds',
-      rest: 'Rest 30 sec',
-      exercises: [
-        'Jumping Jacks',
-        'High Knees',
-        'Glutes Bridge',
-        'Standing Knee Raise (Left)',
-        'Standing Knee Raise (Right)',
+      day: 'Monday',
+      title: 'Lower Body & Glutes',
+      sections: [
+        {
+          title: 'Warm-up',
+          exercises: ['Jumping Jacks', 'Glutes Bridge', 'Standing Knee Raise'],
+          color: '#FF6B35',
+          rest: '20 seconds between exercises',
+        },
+        {
+          title: 'Workout',
+          exercises: ['Air Squat', 'Side Lunge', 'Lunge', 'Overhead Squat'],
+          color: '#FF8C42',
+          rest: '40 seconds between sets',
+        },
+        {
+          title: 'Finisher',
+          exercises: ['Skater Hops', 'Glutes Bridge Hold'],
+          color: '#FFA726',
+          rest: 'No rest',
+        },
+        {
+          title: 'Cool-down',
+          exercises: ['Standing Hamstring Mobility', 'Jefferson Curl'],
+          color: '#FFB74D',
+          rest: 'Hold each stretch for 30 seconds',
+        },
       ],
     },
     {
-      title: 'UPPER BODY & CORE',
-      color: '#0097A7',
-      icon: '💪',
-      description: '2 ROUNDS\n40s work | 20s rest | 60s rest between rounds',
-      exercises: [
-        '1. Shoulder Taps',
-        '2. Plank',
-        '3. Push-up (or Knee Push-up)',
-        '4. Shoulder Press (simulate resistance)',
-        '5. Side Plank (20s each)',
-        '6. Crunches',
-        '7. Oblique Crunches (20s each side)',
-        '8. Reverse Sit to Table Top',
+      day: 'Tuesday',
+      title: 'Upper Body Strength',
+      sections: [
+        {
+          title: 'Warm-up',
+          exercises: ['Shoulder Taps Plank', 'Standing Knee Raise', 'High Knees'],
+          color: '#FF6B35',
+          rest: '20 seconds between exercises',
+        },
+        {
+          title: 'Workout',
+          exercises: ['Push-up', 'Shoulder Press', 'High Plank Hold', 'Side Plank'],
+          color: '#FF8C42',
+          rest: '40 seconds between sets',
+        },
+        {
+          title: 'Finisher',
+          exercises: ['Jumping Jacks', 'Push-up Hold'],
+          color: '#FFA726',
+          rest: 'No rest',
+        },
+        {
+          title: 'Cool-down',
+          exercises: ['Side Bend', 'Hamstring Mobility'],
+          color: '#FFB74D',
+          rest: 'Hold each stretch for 30 seconds',
+        },
       ],
     },
     {
-      title: 'FINISHER',
-      color: '#1976D2',
-      icon: '⚡',
-      description: '30s each | No rest',
-      exercises: [
-        '1. Ski Jumps',
-        '2. Skater Hops',
+      day: 'Wednesday',
+      title: 'Core & Stability',
+      sections: [
+        {
+          title: 'Warm-up',
+          exercises: ['Tuck Hold', 'Side Bends', 'Ski Jumps'],
+          color: '#FF6B35',
+          rest: '20 seconds between exercises',
+        },
+        {
+          title: 'Workout',
+          exercises: ['Oblique Crunches', 'Crunches', 'Plank Shoulder Taps', 'Side Plank'],
+          color: '#FF8C42',
+          rest: '40 seconds between sets',
+        },
+        {
+          title: 'Finisher',
+          exercises: ['High Knees', 'Tuck Hold'],
+          color: '#FFA726',
+          rest: 'No rest',
+        },
+        {
+          title: 'Cool-down',
+          exercises: ['Reverse Sit to Table Top', 'Jefferson Curl'],
+          color: '#FFB74D',
+          rest: 'Hold each stretch for 30 seconds',
+        },
       ],
     },
     {
-      title: 'COOLDOWN',
-      color: '#FFA000',
-      icon: '🧘',
-      description: 'Hold each stretch 30s',
-      exercises: [
-        '1. Hamstring Mobility',
-        '2. Standing Hamstring Mobility',
-        '3. Jefferson Curl (slow, controlled)',
+      day: 'Thursday',
+      title: 'Full Body Balance & Mobility',
+      sections: [
+        {
+          title: 'Warm-up',
+          exercises: ['Jumping Jacks', 'Standing Hamstring Mobility', 'Side Bend'],
+          color: '#FF6B35',
+          rest: '20 seconds between exercises',
+        },
+        {
+          title: 'Workout',
+          exercises: ['Skater Hops', 'Side Lunge', 'High Plank', 'Shoulder Press'],
+          color: '#FF8C42',
+          rest: '40 seconds between sets',
+        },
+        {
+          title: 'Finisher',
+          exercises: ['Ski Jumps', 'Reverse Sit to Table Top'],
+          color: '#FFA726',
+          rest: 'No rest',
+        },
+        {
+          title: 'Cool-down',
+          exercises: ['Hamstring Mobility', 'Jefferson Curl'],
+          color: '#FFB74D',
+          rest: 'Hold each stretch for 30 seconds',
+        },
       ],
     },
+    {
+      day: 'Friday',
+      title: 'Cardio & Burnout',
+      sections: [
+        {
+          title: 'Warm-up',
+          exercises: ['High Knees', 'Jumping Jacks', 'Glutes Bridge'],
+          color: '#FF6B35',
+          rest: '20 seconds between exercises',
+        },
+        {
+          title: 'Workout',
+          exercises: ['Air Squat', 'Push-up', 'Crunches', 'Shoulder Taps', 'Oblique Crunches'],
+          color: '#FF8C42',
+          rest: '40 seconds between sets',
+        },
+        {
+          title: 'Finisher',
+          exercises: ['Jumps', 'Tuck Hold'],
+          color: '#FFA726',
+          rest: 'No rest',
+        },
+        {
+          title: 'Cool-down',
+          exercises: ['Side Bend', 'Standing Hamstring Mobility'],
+          color: '#FFB74D',
+          rest: 'Hold each stretch for 30 seconds',
+        },
+      ],
+    },
+    // Add more days here
   ];
-  const handleStartSection = async (section) => {
-    let defaultDuration = 30;
-    if (section.title === 'UPPER BODY & CORE') defaultDuration = 40;
-    const exercises = section.exercises.map((ex) => {
-      let name = ex.replace(/^\d+\. /, '').replace(/\s*\(.*\)$/, '').trim();
-      if (name === 'Push-up or Knee Push-up' || name === 'Push-up (or Knee Push-up)') name = 'Push-ups';
-      if (name === 'Shoulder Taps') name = 'Shoulder Taps Plank';
-      if (name === 'Standing Knee Raise (Left)') name = 'Standing Knee Raise Left';
-      if (name === 'Standing Knee Raise (Right)') name = 'Standing Knee Raise Right';
-      if (name === 'Hamstring Mobility') name = 'Hamstring mobility';
-      if (name === 'Standing Hamstring') name = 'Standing hamstring mobility';
-      if (name === 'Oblique Crunches') name = 'Oblique Crunches';
-      if (name === 'Reverse Sit to Table Top') name = 'Reverse Sit to Table Top';
-      if (name === 'Side Plank') name = 'Side Plank';
-      if (name === 'Shoulder Press (simulate resistance)') name = 'Shoulder Press';
-      if (name === 'Crunches') name = 'Crunches';
-      if (name === 'Plank') name = 'High Plank';
-      if (name === 'Glutes Bridge') name = 'Glutes Bridge';
-      if (name === 'Ski Jumps') name = 'Ski Jumps';
-      if (name === 'Skater Hops') name = 'Skater Hops';
-      if (name === 'Jefferson Curl (slow, controlled)') name = 'Jefferson curl';
-      if (name === 'Jefferson Curl') name = 'Jefferson curl';
-      const detectorId = exerciseIdMap[name];
-      const scoring = exerciseScoringMap[name];
-      if (!detectorId || !scoring) return null;
-      return new SMWorkoutLibrary.SMAssessmentExercise(
-        detectorId,
-        defaultDuration,
-        detectorId,
-        null,
-        scoring.ui,
-        detectorId,
-        '',
-        new SMWorkoutLibrary.SMScoringParams(
-          scoring.type,
-          0.3,
-          scoring.type === SMWorkoutLibrary.ScoringType.Time ? defaultDuration : null,
-          scoring.type === SMWorkoutLibrary.ScoringType.Reps ? 10 : null,
-          null,
-          null
-        ),
-        '',
-        name,
-        scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'Hold the position' : 'Complete the exercise',
-        scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'Time' : 'Reps',
-        scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'seconds held' : 'clean reps'
-      );
-    }).filter(Boolean);
-    if (exercises.length === 0) {
-      Alert.alert('No exercises found for this section.');
-      return;
-    }
-    const customWorkout = new SMWorkoutLibrary.SMWorkout(
-      section.title.toLowerCase().replace(/\s+/g, '-'),
-      section.title,
-      null,
-      null,
-      exercises,
-      null,
-      null,
-      null
-    );
+
+  // --- Today's Plan Logic ---
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, 2=Tuesday, ...
+  
+  // Check if it's weekend (Saturday=6, Sunday=0)
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  
+  // Select plan based on day (Monday=1, Tuesday=2, etc.)
+  let planIndex = 0; // Default to Monday
+  if (dayOfWeek === 1) planIndex = 0; // Monday
+  else if (dayOfWeek === 2) planIndex = 1; // Tuesday
+  else if (dayOfWeek === 3) planIndex = 2; // Wednesday
+  else if (dayOfWeek === 4) planIndex = 3; // Thursday
+  else if (dayOfWeek === 5) planIndex = 4; // Friday
+  // Add more days as we add them
+  
+  const todaysPlan = isWeekend ? null : (weeklyPlans[planIndex] || weeklyPlans[0]); // null for weekend
+
+  // --- Today's Plan Section State ---
+  const todaysPlanSections = isWeekend ? [] : todaysPlan.sections;
+
+  // Payment success handler
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    setPremiumStatusRefresh(prev => prev + 1); // Force refresh premium status
+  };
+
+  // Drawer functions
+  const openDrawer = () => {
+    setDrawerVisible(true);
+    Animated.timing(drawerAnimation, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeDrawer = () => {
+    Animated.timing(drawerAnimation, {
+      toValue: -SCREEN_WIDTH * 0.75,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setDrawerVisible(false);
+    });
+  };
+
+  const handleLogout = async () => {
     try {
-      await startCustomAssessment(customWorkout, null, true, false);
-    } catch (e) {
-      Alert.alert('Error', e.message);
+      await logout();
+      navigation.navigate('Login');
+    } catch (error) {
+      console.error('Logout error:', error);
     }
+  };
+
+  // Handle play button press for premium features
+  const handlePlayButtonPress = (planId: string) => {
+    // Check if user has premium access
+    const checkPremiumStatus = async () => {
+      try {
+        const authToken = await AsyncStorage.getItem('accessToken');
+        if (!authToken) {
+          setShowPaymentModal(true);
+          return;
+        }
+
+        // Check current user's premium status
+        const response = await fetch(`${BASE_URL}/users/current-user`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          const user = userData.data.user;
+          
+          console.log('🔍 User premium status:', user.isPremium);
+          console.log('🔍 User premium data:', user.premium);
+          
+          if (user.isPremium && user.premium) {
+            // Check if subscription is still valid
+            const expiryDate = new Date(user.premium.endDate);
+            const now = new Date();
+            
+            if (expiryDate > now) {
+              // User has active premium, proceed to workout
+              console.log('✅ User has active premium subscription');
+              const selectedPlan = planData.find(plan => plan.id === planId);
+              if (selectedPlan) {
+                setSelectedPlan(selectedPlan);
+                setShowPlanModal(true);
+              }
+              return;
+            } else {
+              console.log('❌ Premium subscription expired');
+              setShowPaymentModal(true);
+              return;
+            }
+          } else {
+            console.log('❌ User is not premium');
+            setShowPaymentModal(true);
+            return;
+          }
+        } else {
+          console.log('❌ Failed to get user data');
+          setShowPaymentModal(true);
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Error checking premium status:', error);
+        setShowPaymentModal(true);
+        return;
+      }
+    };
+
+    checkPremiumStatus();
+  };
+
+  const handleTodaysPlanPress = async () => {
+    // Check if user has premium access
+    const checkPremiumStatus = async () => {
+      try {
+        const authToken = await AsyncStorage.getItem('accessToken');
+        if (!authToken) {
+          setShowPaymentModal(true);
+          return;
+        }
+
+        // Check current user's premium status
+        const response = await fetch(`${BASE_URL}/users/current-user`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          const user = userData.data.user;
+          
+          if (user.isPremium && user.premium) {
+            // Check if subscription is still valid
+            const expiryDate = new Date(user.premium.endDate);
+            const now = new Date();
+            
+            if (expiryDate > now) {
+              // User has active premium, proceed to workout
+              setShowTodaysPlanModal(true);
+              return;
+            } else {
+              console.log('❌ Premium subscription expired');
+              setShowPaymentModal(true);
+              return;
+            }
+          } else {
+            console.log('❌ User is not premium');
+            setShowPaymentModal(true);
+            return;
+          }
+        } else {
+          console.log('❌ Failed to get user data');
+          setShowPaymentModal(true);
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Error checking premium status:', error);
+        setShowPaymentModal(true);
+        return;
+      }
+    };
+
+    checkPremiumStatus();
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, isNightMode && { backgroundColor: '#111' }]}>
-      <ScrollView contentContainerStyle={[styles.mainContainer, { flexGrow: 1 }, isNightMode && { backgroundColor: '#111' }]}>
+      <ScrollView contentContainerStyle={[styles.mainContainer, { flexGrow: 1, paddingBottom: Platform.OS === 'ios' ? 120 : 80 }, isNightMode && { backgroundColor: '#111' }]}>
       {isLoading && <ActivityIndicator size="large" color="#C4A484" />}
       
         {/* Credit Counter at Top Right (restored) */}
@@ -1929,7 +2190,7 @@ useFocusEffect(
       {/* Profile Button and Motivational Quote */}
       <View style={styles.profileSection}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <TouchableOpacity style={styles.profileButton} onPress={async () => { await logout(); navigation.navigate('Login'); }}>
+        <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile')}>
           <Text style={styles.profileIcon}>👤</Text>
         </TouchableOpacity>
             <TouchableOpacity
@@ -2023,52 +2284,72 @@ useFocusEffect(
         </View>
 
         {/* Today's Plan Section */}
-        <Text style={{ fontSize: 26, fontWeight: 'bold', color: isNightMode ? '#fff' : '#111', marginBottom: 10, marginTop: 0 }}>Today's Plan</Text>
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: '#fff',
-          borderColor: '#111',
-          borderWidth: 2,
-          borderRadius: 20,
-          padding: 16,
-          marginHorizontal: 0,
-          width: '100%',
-          alignSelf: 'center',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.08,
-          shadowRadius: 6,
-          elevation: 2,
-          marginBottom: 24,
-          marginTop: -1,
-          minHeight: 110, // Ensures equal height
-        }}>
-          <View style={{ flex: 1, justifyContent: 'center' }}>
-            <Text style={{ color: '#3b82f6', fontSize: 16, marginBottom: 2 }}>Day 1</Text>
-            <Text style={{ fontWeight: 'bold', fontSize: 20, color: '#222', marginBottom: 2 }}>Full Body Strength</Text>
-            <Text style={{ color: '#789', fontSize: 15 }}>45 min · 5 exercises</Text>
-          </View>
-          <TouchableOpacity
-            style={{
-              width: 70,
-              height: 70,
-              borderRadius: 35,
+        <Text style={{ fontSize: 26, fontWeight: 'bold', color: isNightMode ? '#fff' : '#111', marginBottom: 16, marginTop: 0 }}>Today's Plan</Text>
+        <TouchableOpacity
+          style={{
+            backgroundColor: isNightMode ? '#222' : '#fff',
+            borderColor: '#000',
+            borderWidth: 2,
+            borderRadius: 12,
+            padding: 20,
+            marginHorizontal: 0,
+            width: '100%',
+            alignSelf: 'center',
+            marginBottom: 24,
+            minHeight: 100,
+          }}
+          onPress={isWeekend ? null : handleTodaysPlanPress}
+          activeOpacity={isWeekend ? 1 : 0.7}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1, justifyContent: 'center' }}>
+              <View style={{ 
+                backgroundColor: isWeekend ? '#666' : '#FF6B35', 
+                borderRadius: 6, 
+                paddingHorizontal: 10, 
+                paddingVertical: 3, 
+                alignSelf: 'flex-start',
+                marginBottom: 8
+              }}>
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+                  {isWeekend ? 'Rest Day' : `Day ${planIndex + 1}`}
+                </Text>
+              </View>
+              <Text style={{ 
+                fontWeight: '600', 
+                fontSize: 18, 
+                color: isNightMode ? '#fff' : '#333', 
+                marginBottom: 4 
+              }}>
+                {isWeekend ? 'Take a Break' : todaysPlan.title}
+              </Text>
+              <Text style={{ 
+                color: isNightMode ? '#ccc' : '#666', 
+                fontSize: 14
+              }}>
+                {isWeekend ? 'Recover and recharge for next week' : `${todaysPlan.sections.length} sections · ${todaysPlan.sections.reduce((total, section) => total + section.exercises.length, 0)} exercises`}
+              </Text>
+            </View>
+            <View style={{
+              width: 50,
+              height: 50,
+              borderRadius: 25,
               justifyContent: 'center',
               alignItems: 'center',
-              marginLeft: 10,
-              backgroundColor: 'transparent',
-              overflow: 'hidden',
-            }}
-            onPress={() => setShowTodaysPlanModal(true)}
-          >
-            <Image
-              source={require('../assets/PlayButton2.png')}
-              style={{ width: 40, height: 40 }}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-        </View>
+              backgroundColor: isWeekend ? '#666' : '#FF6B35'
+            }}>
+              {isWeekend ? (
+                <Text style={{ color: '#fff', fontSize: 24 }}>😴</Text>
+              ) : (
+                <Image
+                  source={require('../assets/PlayButton2.png')}
+                  style={{ width: 20, height: 20 }}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
         {/* Today's Plan Modal */}
         {showTodaysPlanModal && (
           <Modal
@@ -2079,32 +2360,140 @@ useFocusEffect(
           >
             <SafeAreaView style={{ flex: 1, backgroundColor: isNightMode ? '#111' : '#fff' }}>
               <View style={{ flex: 1 }}>
-                <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
-                  {/* Close Button */}
+                {/* Header */}
+                <View style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingVertical: 16,
+                  backgroundColor: isNightMode ? '#111' : '#fff',
+                  borderBottomWidth: 1,
+                  borderBottomColor: isNightMode ? '#333' : '#e0e0e0'
+                }}>
                   <TouchableOpacity
-                    style={{ position: 'absolute', top: 28, left: 10, zIndex: 10, backgroundColor: isNightMode ? '#222' : '#fff', borderRadius: 18, width: 36, height: 36, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 4, elevation: 2 }}
+                    style={{ 
+                      backgroundColor: isNightMode ? '#333' : '#f5f5f5', 
+                      borderRadius: 20, 
+                      width: 40, 
+                      height: 40, 
+                      justifyContent: 'center', 
+                      alignItems: 'center' 
+                    }}
                     onPress={() => setShowTodaysPlanModal(false)}
                     activeOpacity={0.7}
                   >
-                    <Text style={{ fontSize: 22, color: '#E53935', fontWeight: 'bold', lineHeight: 24 }}>×</Text>
+                    <Text style={{ fontSize: 20, color: isNightMode ? '#fff' : '#333', fontWeight: '300' }}>×</Text>
                   </TouchableOpacity>
-                  <Text style={{ fontSize: 28, fontWeight: 'bold', color: isNightMode ? '#fff' : '#111', marginBottom: 18, marginTop: 24, textAlign: 'left' }}>Today's Plan</Text>
+                  <Text style={{ 
+                    fontSize: 20, 
+                    fontWeight: '600', 
+                    color: isNightMode ? '#fff' : '#333',
+                    flex: 1,
+                    textAlign: 'center',
+                    marginRight: 40
+                  }}>
+                    Today's Plan
+                  </Text>
+                </View>
+
+                <ScrollView 
+                  contentContainerStyle={{ 
+                    padding: 20, 
+                    paddingBottom: 40 
+                  }}
+                  showsVerticalScrollIndicator={false}
+                >
                   {todaysPlanSections.map((section, idx) => (
-                    <View key={section.title} style={{ marginBottom: 28, backgroundColor: '#fff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                        <Text style={{ fontSize: 22, fontWeight: 'bold', color: section.color, marginRight: 8 }}>{section.icon}</Text>
-                        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#222' }}>{section.title}</Text>
+                    <View key={section.title} style={{ 
+                      marginBottom: 20, 
+                      backgroundColor: isNightMode ? '#222' : '#fff', 
+                      borderRadius: 12, 
+                      padding: 20, 
+                      borderWidth: 2,
+                      borderColor: '#000'
+                    }}>
+                      {/* Section Header */}
+                      <View style={{ marginBottom: 16 }}>
+                        <Text style={{ 
+                          fontSize: 18, 
+                          fontWeight: '600', 
+                          color: section.color,
+                          marginBottom: 4
+                        }}>
+                          {section.title}
+                        </Text>
+                        <Text style={{ 
+                          color: isNightMode ? '#ccc' : '#666', 
+                          fontSize: 14 
+                        }}>
+                          {section.description}
+                        </Text>
                       </View>
-                      <Text style={{ color: '#666', fontSize: 15, marginBottom: 6 }}>{section.description}</Text>
-                      {section.rest && <Text style={{ color: '#789', fontSize: 14, marginBottom: 6 }}>Rest: {section.rest}</Text>}
-                      {section.exercises.map((ex, exIdx) => (
-                        <Text key={exIdx} style={{ color: '#222', fontSize: 16, marginBottom: 2 }}>{ex}</Text>
-                      ))}
+
+                      {/* Rest Time */}
+                      {section.rest && (
+                        <View style={{ 
+                          backgroundColor: isNightMode ? '#333' : '#f5f5f5', 
+                          borderRadius: 6, 
+                          padding: 8, 
+                          marginBottom: 16,
+                          borderLeftWidth: 3,
+                          borderLeftColor: section.color
+                        }}>
+                          <Text style={{ 
+                            color: isNightMode ? '#ccc' : '#666', 
+                            fontSize: 13, 
+                            fontWeight: '500'
+                          }}>
+                            {section.rest}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Exercises List */}
+                      <View style={{ marginBottom: 20 }}>
+                        {section.exercises.map((ex, exIdx) => (
+                          <View key={exIdx} style={{ 
+                            flexDirection: 'row', 
+                            alignItems: 'center', 
+                            marginBottom: 8 
+                          }}>
+                            <View style={{ 
+                              backgroundColor: section.color, 
+                              borderRadius: 2, 
+                              width: 4, 
+                              height: 4, 
+                              marginRight: 12 
+                            }} />
+                            <Text style={{ 
+                              color: isNightMode ? '#fff' : '#333', 
+                              fontSize: 15
+                            }}>
+                              {ex}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Start Button */}
                       <TouchableOpacity
-                        style={{ marginTop: 10, backgroundColor: section.color, borderRadius: 8, paddingVertical: 10, alignItems: 'center' }}
+                        style={{ 
+                          backgroundColor: section.color, 
+                          borderRadius: 8, 
+                          paddingVertical: 14, 
+                          alignItems: 'center'
+                        }}
                         onPress={() => handleStartSection(section)}
+                        activeOpacity={0.7}
                       >
-                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Start {section.title}</Text>
+                        <Text style={{ 
+                          color: '#fff', 
+                          fontWeight: '500', 
+                          fontSize: 16 
+                        }}>
+                          Start {section.title}
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -2123,10 +2512,7 @@ useFocusEffect(
           <TouchableOpacity
             style={[styles.planContainer, { width: SCREEN_WIDTH * 0.8, overflow: 'hidden', backgroundColor: 'transparent', borderRadius: 15, padding: 0, justifyContent: 'flex-end' }]} 
             activeOpacity={0.8}
-            onPress={() => {
-              setSelectedPlan(planData[0]);
-              setShowPlanModal(true);
-            }}
+            onPress={() => handlePlayButtonPress('full-stack-fitness')}
             disabled={showPlanModal}
           >
             <Image source={planData[0].image} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 15 }} />
@@ -2138,10 +2524,7 @@ useFocusEffect(
           <TouchableOpacity
             style={[styles.planContainer, { width: SCREEN_WIDTH * 0.8, overflow: 'hidden', backgroundColor: 'transparent', borderRadius: 15, padding: 0, justifyContent: 'flex-end' }]} 
             activeOpacity={0.8}
-            onPress={() => {
-              setSelectedPlan(planData[1]);
-              setShowPlanModal(true);
-            }}
+            onPress={() => handlePlayButtonPress('fat-burner')}
             disabled={showPlanModal}
           >
             <Image source={planData[1].image} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 15 }} />
@@ -2162,10 +2545,7 @@ useFocusEffect(
           <TouchableOpacity
             style={[styles.planContainer, { width: SCREEN_WIDTH * 0.8, overflow: 'hidden', backgroundColor: 'transparent', borderRadius: 15, padding: 0, justifyContent: 'flex-end' }]} 
             activeOpacity={0.8}
-            onPress={() => {
-              setSelectedPlan(planData.find(plan => plan.id === 'plank-core-stability'));
-              setShowPlanModal(true);
-            }}
+            onPress={() => handlePlayButtonPress('plank-core-stability')}
             disabled={showPlanModal}
           >
             <Image source={require('../assets/plank1.png')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 15 }} />
@@ -2178,10 +2558,7 @@ useFocusEffect(
           <TouchableOpacity
             style={[styles.planContainer, { width: SCREEN_WIDTH * 0.8, overflow: 'hidden', backgroundColor: 'transparent', borderRadius: 15, padding: 0, justifyContent: 'flex-end' }]} 
             activeOpacity={0.8}
-            onPress={() => {
-              setSelectedPlan(planData.find(plan => plan.id === 'mobility-stretch'));
-              setShowPlanModal(true);
-            }}
+            onPress={() => handlePlayButtonPress('mobility-stretch')}
             disabled={showPlanModal}
           >
             <Image source={require('../assets/jefferson.png')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 15 }} />
@@ -2201,10 +2578,7 @@ useFocusEffect(
           <TouchableOpacity
   style={[styles.planContainer, { width: SCREEN_WIDTH * 0.8, overflow: 'hidden', backgroundColor: 'transparent', borderRadius: 15, padding: 0, justifyContent: 'flex-end' }]}
   activeOpacity={0.8}
-  onPress={() => {
-    setSelectedPlan(planData.find(plan => plan.id === 'cardio-basic'));
-    setShowPlanModal(true);
-  }}
+  onPress={() => handlePlayButtonPress('cardio-basic')}
   disabled={showPlanModal}
 >
   <Image
@@ -2234,10 +2608,7 @@ useFocusEffect(
                           <TouchableOpacity
                                 style={[styles.planContainer, { width: SCREEN_WIDTH * 0.8, overflow: 'hidden', backgroundColor: 'transparent', borderRadius: 15, padding: 0, justifyContent: 'flex-end' }]}
                                 activeOpacity={0.8}
-                                onPress={() => {
-                                  setSelectedPlan(planData.find(plan => plan.id === 'cardio-hardcore'));
-                                  setShowPlanModal(true);
-                                }}
+                                onPress={() => handlePlayButtonPress('cardio-hardcore')}
                                 disabled={showPlanModal}
                             >
                               <Image
@@ -2556,89 +2927,146 @@ useFocusEffect(
                         setShowPlanModal(false);
                         setTimeout(async () => {
                           if (selectedPlan) {
-                            // Use selectedPlan and selectedLevel for any plan
-                            const customExercises = selectedPlan.exercises.map((exercise, idx) => {
-                              const scoring = exerciseScoringMap[exercise.name] || { type: SMWorkoutLibrary.ScoringType.Reps, ui: [SMWorkoutLibrary.UIElement.RepsCounter, SMWorkoutLibrary.UIElement.Timer] };
-                              // Special handling for Plank & Core Stability exercises
-                              if (["High Plank", "Side Plank", "Tuck Hold", "Plank", "Hamstring mobility", "Standing hamstring mobility", "Side bend", "Standing knee raises", "Jefferson curl"].includes(exercise.name)) {
-                                const scoring = exerciseScoringMap[exercise.name];
-                                // Set correct video instruction names for hamstring exercises
-                                let videoInstruction = exerciseIdMap[exercise.name];
-                                if (exercise.name === "Hamstring mobility") {
-                                  videoInstruction = "HamstringMobility";
-                                } else if (exercise.name === "Standing hamstring mobility") {
-                                  videoInstruction = "StandingHamstringMobility";
+                            // Check if user has premium access
+                            const checkPremiumStatus = async () => {
+                              try {
+                                const authToken = await AsyncStorage.getItem('accessToken');
+                                if (!authToken) {
+                                  setShowPaymentModal(true);
+                                  setStartDisabled(false);
+                                  return;
                                 }
-                                return new SMWorkoutLibrary.SMAssessmentExercise(
-                                  exerciseIdMap[exercise.name],
-                                  exercise.duration[selectedLevel],
-                                  videoInstruction,
-                                  null,
-                                  scoring.ui,
-                                  exerciseIdMap[exercise.name],
-                                  '',
-                                  new SMWorkoutLibrary.SMScoringParams(
-                                    scoring.type,
-                                    0.3,
-                                    scoring.type === SMWorkoutLibrary.ScoringType.Time ? exercise.duration[selectedLevel] : null,
-                                    scoring.type === SMWorkoutLibrary.ScoringType.Reps ? exercise.reps[selectedLevel] : null,
-                                    null,
-                                    null
-                                  ),
-                                  '',
-                                  exercise.name,
-                                  scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'Hold the position' : 'Complete the exercise',
-                                  scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'Time' : 'Reps',
-                                  scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'seconds held' : 'clean reps'
-                                );
-                              } else {
-                                return new SMWorkoutLibrary.SMAssessmentExercise(
-                                  exerciseIdMap[exercise.name] || exercise.name.replace(/\s+/g, ''),
-                                  exercise.duration[selectedLevel],
-                                  exerciseIdMap[exercise.name] || exercise.name.replace(/\s+/g, ''),
-                                  null,
-                                  scoring.ui,
-                                  exerciseIdMap[exercise.name] || exercise.name.replace(/\s+/g, ''),
-                                  '',
-                                  new SMWorkoutLibrary.SMScoringParams(
-                                    scoring.type,
-                                    0.3,
-                                    scoring.type === SMWorkoutLibrary.ScoringType.Time ? exercise.duration[selectedLevel] : null,
-                                    scoring.type === SMWorkoutLibrary.ScoringType.Reps ? exercise.reps[selectedLevel] : null,
-                                    null,
-                                    null
-                                  ),
-                                  '',
-                                  exercise.name,
-                                  scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'Hold the position' : 'Complete the exercise',
-                                  scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'Time' : 'Reps',
-                                  scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'seconds held' : 'clean reps'
-                                );
+
+                                // Check current user's premium status
+                                const response = await fetch(`${BASE_URL}/users/current-user`, {
+                                  headers: {
+                                    'Authorization': `Bearer ${authToken}`
+                                  }
+                                });
+
+                                if (response.ok) {
+                                  const userData = await response.json();
+                                  const user = userData.data.user;
+                                  
+                                  if (user.isPremium && user.premium) {
+                                    // Check if subscription is still valid
+                                    const expiryDate = new Date(user.premium.endDate);
+                                    const now = new Date();
+                                    
+                                    if (expiryDate > now) {
+                                      // User has active premium, proceed with workout
+                                      console.log('✅ User has active premium subscription');
+                                      // Proceed with workout logic here
+                                      // Use selectedPlan and selectedLevel for any plan
+                                      const customExercises = selectedPlan.exercises.map((exercise, idx) => {
+                                        const scoring = exerciseScoringMap[exercise.name] || { type: SMWorkoutLibrary.ScoringType.Reps, ui: [SMWorkoutLibrary.UIElement.RepsCounter, SMWorkoutLibrary.UIElement.Timer] };
+                                        // Special handling for Plank & Core Stability exercises
+                                        if (["High Plank", "Side Plank", "Tuck Hold", "Plank", "Hamstring mobility", "Standing hamstring mobility", "Side bend", "Standing knee raises", "Jefferson curl"].includes(exercise.name)) {
+                                          const scoring = exerciseScoringMap[exercise.name];
+                                          // Set correct video instruction names for hamstring exercises
+                                          let videoInstruction = exerciseIdMap[exercise.name];
+                                          if (exercise.name === "Hamstring mobility") {
+                                            videoInstruction = "HamstringMobility";
+                                          } else if (exercise.name === "Standing hamstring mobility") {
+                                            videoInstruction = "StandingHamstringMobility";
+                                          }
+                                          return new SMWorkoutLibrary.SMAssessmentExercise(
+                                            exerciseIdMap[exercise.name],
+                                            exercise.duration[selectedLevel],
+                                            videoInstruction,
+                                            null,
+                                            scoring.ui,
+                                            exerciseIdMap[exercise.name],
+                                            '',
+                                            new SMWorkoutLibrary.SMScoringParams(
+                                              scoring.type,
+                                              0.3,
+                                              scoring.type === SMWorkoutLibrary.ScoringType.Time ? exercise.duration[selectedLevel] : null,
+                                              scoring.type === SMWorkoutLibrary.ScoringType.Reps ? exercise.reps[selectedLevel] : null,
+                                              null,
+                                              null
+                                            ),
+                                            '',
+                                            exercise.name,
+                                            scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'Hold the position' : 'Complete the exercise',
+                                            scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'Time' : 'Reps',
+                                            scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'seconds held' : 'clean reps'
+                                          );
+                                        } else {
+                                          return new SMWorkoutLibrary.SMAssessmentExercise(
+                                            exerciseIdMap[exercise.name] || exercise.name.replace(/\s+/g, ''),
+                                            exercise.duration[selectedLevel],
+                                            exerciseIdMap[exercise.name] || exercise.name.replace(/\s+/g, ''),
+                                            null,
+                                            scoring.ui,
+                                            exerciseIdMap[exercise.name] || exercise.name.replace(/\s+/g, ''),
+                                            '',
+                                            new SMWorkoutLibrary.SMScoringParams(
+                                              scoring.type,
+                                              0.3,
+                                              scoring.type === SMWorkoutLibrary.ScoringType.Time ? exercise.duration[selectedLevel] : null,
+                                              scoring.type === SMWorkoutLibrary.ScoringType.Reps ? exercise.reps[selectedLevel] : null,
+                                              null,
+                                              null
+                                            ),
+                                            '',
+                                            exercise.name,
+                                            scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'Hold the position' : 'Complete the exercise',
+                                            scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'Time' : 'Reps',
+                                            scoring.type === SMWorkoutLibrary.ScoringType.Time ? 'seconds held' : 'clean reps'
+                                          );
+                                        }
+                                      });
+                                      const customWorkout = new SMWorkoutLibrary.SMWorkout(
+                                        selectedPlan.name.toLowerCase().replace(/\s+/g, '-'),
+                                        selectedPlan.name,
+                                        null,
+                                        null,
+                                        customExercises,
+                                        null,
+                                        null,
+                                        null
+                                      );
+                                      try {
+                                        const result = await startCustomAssessment(customWorkout, null, true, false);
+                                        
+                                        // Add a small delay before showing the summary modal
+                                        await new Promise(resolve => setTimeout(resolve, 1000));
+                                        
+                                        setSummaryMessage(result.summary);
+                                        const parsed = JSON.parse(result.summary);
+                                        setParsedSummaryData(parsed);
+                                        setModalVisible(true);
+                                      } catch (e) {
+                                        Alert.alert('Assessment Error', e.message);
+                                      }
+                                    } else {
+                                      console.log('❌ Premium subscription expired');
+                                      setShowPaymentModal(true);
+                                      setStartDisabled(false);
+                                      return;
+                                    }
+                                  } else {
+                                    console.log('❌ User is not premium');
+                                    setShowPaymentModal(true);
+                                    setStartDisabled(false);
+                                    return;
+                                  }
+                                } else {
+                                  console.log('❌ Failed to get user data');
+                                  setShowPaymentModal(true);
+                                  setStartDisabled(false);
+                                  return;
+                                }
+                              } catch (error) {
+                                console.error('❌ Error checking premium status:', error);
+                                setShowPaymentModal(true);
+                                setStartDisabled(false);
+                                return;
                               }
-                            });
-                            const customWorkout = new SMWorkoutLibrary.SMWorkout(
-                              selectedPlan.name.toLowerCase().replace(/\s+/g, '-'),
-                              selectedPlan.name,
-                              null,
-                              null,
-                              customExercises,
-                              null,
-                              null,
-                              null
-                            );
-                            try {
-                              const result = await startCustomAssessment(customWorkout, null, true, false);
-                              
-                              // Add a small delay before showing the summary modal
-                              await new Promise(resolve => setTimeout(resolve, 1000));
-                              
-                              setSummaryMessage(result.summary);
-                              const parsed = JSON.parse(result.summary);
-                              setParsedSummaryData(parsed);
-                              setModalVisible(true);
-                            } catch (e) {
-                              Alert.alert('Assessment Error', e.message);
-                            }
+                            };
+
+                            checkPremiumStatus();
                           }
                           setStartDisabled(false);
                         }, 1000);
@@ -2652,6 +3080,16 @@ useFocusEffect(
             </SafeAreaView>
           </View>
         </Modal>
+
+        {/* Payment Modal */}
+        <RazorpayPayment
+          visible={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
+        />
+
+        {/* Slide-out Drawer */}
+        {/* (Drawer removed) */}
 
       </ScrollView>
     </SafeAreaView>
@@ -3073,6 +3511,7 @@ const styles = StyleSheet.create({
   mainContainer: {
     backgroundColor: '#fff',
     padding: '5%', // Use a single padding property for consistency
+    paddingBottom: Platform.OS === 'ios' ? 120 : 80, // Add extra padding for bottom navigation bar + safe area
   },
   placeholderText: {
     fontSize: 24,
@@ -3678,10 +4117,5 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 });
-
-App.propTypes = {
-  isNightMode: PropTypes.bool.isRequired,
-  setIsNightMode: PropTypes.func.isRequired,
-};
 
 export default App;

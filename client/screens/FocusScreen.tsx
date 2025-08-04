@@ -39,6 +39,10 @@ import { Svg, Circle, Path } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { addPerformedExercises } from '../utils/exerciseTracker';
+import RazorpayPayment from '../src/components/RazorpayPayment';
+import { useNightMode } from '../context/NightModeContext';
+import { useContext } from 'react';
+import AuthContext from '../context/AuthContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -49,9 +53,10 @@ const formatDuration = (totalSeconds) => {
     const seconds = totalSeconds % 60;
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
-   const userId = "6853e136a4d5b09d329515ff";
+
 // Add this helper function near the top, after imports:
 function formatExerciseName(name) {
+  if (!name) return '';
   return name
     .replace(/[_-]/g, ' ')
     .replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -63,28 +68,34 @@ function formatExerciseName(name) {
 // ArcProgress component for semi-circular progress bar
 function ArcProgress({ progress, max, size = 80, strokeWidth = 10, color = '#4CAF50', bgColor = '#eee' }) {
   const radius = (size - strokeWidth) / 2;
-  const center = size / 2;
-  const angle = Math.PI * (progress / max);
-  const x = center + radius * Math.cos(Math.PI - angle);
-  const y = center - radius * Math.sin(Math.PI - angle);
-  const largeArcFlag = progress > max / 2 ? 1 : 0;
-  const arcPath = `M ${center - radius},${center} A ${radius},${radius} 0 ${largeArcFlag} 1 ${x},${y}`;
+  const circumference = radius * 2 * Math.PI;
+  const strokeDasharray = circumference;
+  const strokeDashoffset = circumference - (progress / max) * circumference;
+
   return (
-    <View style={{ width: size, height: size / 2, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size / 2}>
-        {/* Background arc */}
-        <Path
-          d={`M ${center - radius},${center} A ${radius},${radius} 0 1 1 ${center + radius},${center}`}
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size}>
+        {/* Background circle */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
           stroke={bgColor}
           strokeWidth={strokeWidth}
-          fill="none"
+          fill="transparent"
         />
-        {/* Foreground arc */}
-        <Path
-          d={arcPath}
+        {/* Progress circle */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
           stroke={color}
           strokeWidth={strokeWidth}
-          fill="none"
+          fill="transparent"
+          strokeDasharray={strokeDasharray}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
       {/* Center number */}
@@ -95,7 +106,12 @@ function ArcProgress({ progress, max, size = 80, strokeWidth = 10, color = '#4CA
   );
 }
 
-const App = ({ isNightMode, setIsNightMode, inFocusMode, setInFocusMode }) => {
+const App = ({ inFocusMode, setInFocusMode }) => {
+  const { isNightMode, setIsNightMode } = useNightMode();
+  const { user } = useContext(AuthContext);
+  
+  // Get user ID from logged-in user
+  const userId = user?._id || user?.id;
   const [didConfig, setDidConfig] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [showWFPUI, setWPFUI] = React.useState(false);
@@ -133,6 +149,88 @@ const App = ({ isNightMode, setIsNightMode, inFocusMode, setInFocusMode }) => {
 
   const [todayCleanReps, setTodayCleanReps] = useState(0);
   const [todayCleanTime, setTodayCleanTime] = useState(0);
+
+  // Payment modal state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [premiumStatusRefresh, setPremiumStatusRefresh] = useState(0); // Force refresh counter
+
+  // Payment success handler
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    setPremiumStatusRefresh(prev => prev + 1);
+  };
+
+  // Premium check function for Focus Mode
+  const handleFocusModePress = async () => {
+    // Check if user has premium access
+    const checkPremiumStatus = async () => {
+      try {
+        const authToken = await AsyncStorage.getItem('accessToken');
+        if (!authToken) {
+          setShowPaymentModal(true);
+          return;
+        }
+
+        // Check current user's premium status
+        const response = await fetch(`${BASE_URL}/users/current-user`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          const user = userData.data.user;
+          
+          console.log('🔍 User premium status:', user.isPremium);
+          console.log('🔍 User premium data:', user.premium);
+          
+          if (user.isPremium && user.premium) {
+            // Check if subscription is still valid
+            const expiryDate = new Date(user.premium.endDate);
+            const now = new Date();
+            
+            if (expiryDate > now) {
+              // User has active premium, proceed with Focus Mode
+              console.log('✅ User has active premium subscription');
+              try {
+                const response = await axios.post(`${BASE_URL}/focus/start`, {
+                  userId
+                });
+
+                const session = response?.data?.data;
+                console.log('🎯 Focus session started:', session);
+
+                // Update local state to indicate you're now in focus mode
+                setInFocusMode(true);
+              } catch (err) {
+                console.error('❌ Failed to start focus session:', err.response?.data || err.message);
+              }
+              return;
+            } else {
+              console.log('❌ Premium subscription expired');
+              setShowPaymentModal(true);
+              return;
+            }
+          } else {
+            console.log('❌ User is not premium');
+            setShowPaymentModal(true);
+            return;
+          }
+        } else {
+          console.log('❌ Failed to get user data');
+          setShowPaymentModal(true);
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Error checking premium status:', error);
+        setShowPaymentModal(true);
+        return;
+      }
+    };
+
+    checkPremiumStatus();
+  };
 
   // Define exercises for the Focus Mode assessment
   const focusAssessmentExercises = [
@@ -2040,7 +2138,7 @@ const handleEvent = async (summary) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, isNightMode && { backgroundColor: '#111' }]}>
-      <View style={[styles.mainContainer, { flex: 1, marginTop: 4, paddingBottom: 32, justifyContent: 'flex-start' }, isNightMode && { backgroundColor: '#111' }]}>
+      <View style={[styles.mainContainer, { flex: 1, marginTop: 4, paddingBottom: Platform.OS === 'ios' ? 120 : 80, justifyContent: 'flex-start' }, isNightMode && { backgroundColor: '#111' }]}>
       {isLoading && <ActivityIndicator size="large" color="#C4A484" />}
         
         {/* Focus Mode Header Section */}
@@ -2114,21 +2212,7 @@ const handleEvent = async (summary) => {
         {!inFocusMode ? (
           <TouchableOpacity
             style={{backgroundColor: '#2196F3', borderRadius: 10, minHeight: 56, justifyContent: 'center', alignItems: 'center', marginBottom: 4, marginHorizontal: 2}}
-            onPress={async () => {
-    try {
-      const response = await axios.post(`${BASE_URL}/focus/start`, {
-        userId
-      });
-
-      const session = response?.data?.data;
-      console.log('🎯 Focus session started:', session);
-
-      // Update local state to indicate you're now in focus mode
-      setInFocusMode(true);
-    } catch (err) {
-      console.error('❌ Failed to start focus session:', err.response?.data || err.message);
-    }
-  }}
+            onPress={handleFocusModePress}
           >
             <Text style={{color: '#fff', fontWeight: 'bold', fontSize: 20}}>Start Focus Mode</Text>
           </TouchableOpacity>
@@ -2950,6 +3034,13 @@ const handleEvent = async (summary) => {
         </Modal>
 
       </View>
+
+      {/* Payment Modal */}
+      <RazorpayPayment
+        visible={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSuccess={handlePaymentSuccess}
+      />
     </SafeAreaView>
   );
 
@@ -3475,6 +3566,7 @@ const styles = StyleSheet.create({
   mainContainer: {
     backgroundColor: '#fff',
     padding: '5%', // Use a single padding property for consistency
+    paddingBottom: Platform.OS === 'ios' ? 120 : 80, // Add extra padding for bottom navigation bar + safe area
   },
   placeholderText: {
     fontSize: 24,
@@ -4306,8 +4398,6 @@ const styles = StyleSheet.create({
 });
 
 App.propTypes = {
-  isNightMode: PropTypes.bool.isRequired,
-  setIsNightMode: PropTypes.func.isRequired,
   inFocusMode: PropTypes.bool.isRequired,
   setInFocusMode: PropTypes.func.isRequired,
 };
