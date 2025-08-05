@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { NavigationContainer } from '@react-navigation/native'; // Only needed if this is the entry point
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, TouchableOpacity, View, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,9 +92,9 @@ const MainTabs = () => {
           body: JSON.stringify({ userId }),
         });
         const data = await res.json();
-        console.log("🔁 Focus session check result:", data.message);
+        // console.log("🔁 Focus session check result:", data.message);
       } catch (error) {
-        console.error("❌ Focus session check failed:", error.message);
+        // console.error("❌ Focus session check failed:", error.message);
       }
     };
     runFocusSessionCheck();

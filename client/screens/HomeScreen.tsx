@@ -807,9 +807,9 @@ useFocusEffect(
         const response = await axios.get(`${BASE_URL}/credit/get/${userId}`);
         const updatedCredits = response?.data?.data?.credits ?? 0;
         setCreditScore(updatedCredits);
-        console.log('🎯 Credits fetched on screen focus:', updatedCredits);
+        // console.log('🎯 Credits fetched on screen focus:', updatedCredits);
       } catch (err) {
-        console.error('❌ Failed to fetch credits:', err.response?.data || err.message);
+        // console.error('❌ Failed to fetch credits:', err.response?.data || err.message);
       } finally {
         setCreditLoading(false);
       }
@@ -2059,8 +2059,8 @@ useFocusEffect(
           const userData = await response.json();
           const user = userData.data.user;
           
-          console.log('🔍 User premium status:', user.isPremium);
-          console.log('🔍 User premium data:', user.premium);
+          // console.log('🔍 User premium status:', user.isPremium);
+          // console.log('🔍 User premium data:', user.premium);
           
           if (user.isPremium && user.premium) {
             // Check if subscription is still valid

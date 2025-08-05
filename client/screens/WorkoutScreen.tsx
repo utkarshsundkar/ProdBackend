@@ -2436,8 +2436,8 @@ const App = () => {
           const userData = await response.json();
           const user = userData.data.user;
           
-          console.log('🔍 User premium status:', user.isPremium);
-          console.log('🔍 User premium data:', user.premium);
+          // console.log('🔍 User premium status:', user.isPremium);
+          // console.log('🔍 User premium data:', user.premium);
           
           if (user.isPremium && user.premium) {
             // Check if subscription is still valid
@@ -2471,7 +2471,7 @@ const App = () => {
           return;
         }
       } catch (error) {
-        console.error('❌ Error checking premium status:', error);
+        // console.error('❌ Error checking premium status:', error);
         setShowPaymentModal(true);
         return;
       }
@@ -2501,8 +2501,8 @@ const App = () => {
           const userData = await response.json();
           const user = userData.data.user;
           
-          console.log('🔍 User premium status:', user.isPremium);
-          console.log('🔍 User premium data:', user.premium);
+          // console.log('🔍 User premium status:', user.isPremium);
+          // console.log('🔍 User premium data:', user.premium);
           
           if (user.isPremium && user.premium) {
             // Check if subscription is still valid
@@ -2534,7 +2534,7 @@ const App = () => {
           return;
         }
       } catch (error) {
-        console.error('❌ Error checking premium status:', error);
+        // console.error('❌ Error checking premium status:', error);
         setShowPaymentModal(true);
         return;
       }
@@ -2564,8 +2564,8 @@ const App = () => {
           const userData = await response.json();
           const user = userData.data.user;
           
-          console.log('🔍 User premium status:', user.isPremium);
-          console.log('🔍 User premium data:', user.premium);
+          // console.log('🔍 User premium status:', user.isPremium);
+          // console.log('🔍 User premium data:', user.premium);
           
           if (user.isPremium && user.premium) {
             // Check if subscription is still valid
@@ -2597,7 +2597,7 @@ const App = () => {
           return;
         }
       } catch (error) {
-        console.error('❌ Error checking premium status:', error);
+        // console.error('❌ Error checking premium status:', error);
         setShowPaymentModal(true);
         return;
       }
@@ -2678,13 +2678,20 @@ useFocusEffect(
         const response = await axios.get(`${BASE_URL}/diy/getAll/${userId}`);
         const diyList = response?.data?.data ?? [];
         setDiyEntries(diyList);
-        console.log('🛠️ DIY entries fetched on screen focus:', diyList);
+        // Removed console log that shows to users
          const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
         const todayCustom = diyList.find(entry => entry.day === today);
         setTodayCustomPlan(todayCustom);
-        console.log('🛠️ Today\'s custom plan:', todayCustom);
+        // Removed console log that shows to users
       } catch (err) {
-        console.error('❌ Failed to fetch DIY entries:', err.response?.data || err.message);
+        // Handle 404 gracefully - new users won't have DIY entries
+        if (err.response?.status === 404) {
+          console.log('ℹ️ No DIY entries found for new user - this is expected');
+          setDiyEntries([]);
+          setTodayCustomPlan(null);
+        } else {
+          console.error('❌ Failed to fetch DIY entries:', err.response?.data || err.message);
+        }
       } finally {
         setCustomWorkoutLoading(false);
       }
@@ -4049,15 +4056,22 @@ useFocusEffect(
         const response = await axios.get(`${BASE_URL}/diy/getAll/${userId}`);
         const diyList = response?.data?.data ?? [];
         setDiyEntries(diyList);
-        console.log('🛠️ DIY entries fetched:', diyList);
+        // console.log('🛠️ DIY entries fetched:', diyList);
 
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
         const todayCustom = diyList.find(entry => entry.day === today);
         setTodayCustomPlan(todayCustom); // optional state if needed
-        console.log('📅 Today\'s custom DIY:', todayCustom);
+        // console.log('📅 Today\'s custom DIY:', todayCustom);
 
       } catch (err) {
-        console.error('❌ Failed to fetch DIY entries:', err.response?.data || err.message);
+        // Handle 404 gracefully - new users won't have DIY entries
+        if (err.response?.status === 404) {
+          console.log('ℹ️ No DIY entries found for new user - this is expected');
+          setDiyEntries([]);
+          setTodayCustomPlan(null);
+        } else {
+          console.error('❌ Failed to fetch DIY entries:', err.response?.data || err.message);
+        }
       }
 
   // Move to previous step
