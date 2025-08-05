@@ -106,7 +106,8 @@ const MainTabs = () => {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen
-        name="Home"
+        name="Explore"
+        options={{ tabBarLabel: "Explore" }}
         children={() => <HomeScreen />}
       />
       <Tab.Screen
