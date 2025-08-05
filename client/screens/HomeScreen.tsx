@@ -53,7 +53,7 @@ import RazorpayPayment from '../src/components/RazorpayPayment';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 // Add this helper function near the top, after imports:
-function formatExerciseName(name) {
+function formatExerciseName(name: string) {
   if (!name) return '';
   return name
     .replace(/[_-]/g, ' ')
@@ -62,6 +62,120 @@ function formatExerciseName(name) {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+// Helper functions to calculate dynamic workout details
+const calculateWorkoutDetails = (plan: any, selectedLevel: string) => {
+  if (!plan || !plan.exercises) {
+    return {
+      level: 'Beginner',
+      time: '18 mins',
+      focusArea: 'Abs'
+    };
+  }
+
+  // Calculate total time based on exercises and selected level
+  const totalTime = plan.exercises.reduce((total: number, exercise: any) => {
+    const exerciseTime = exercise.duration?.[selectedLevel] || 30;
+    return total + exerciseTime;
+  }, 0);
+
+  // Convert seconds to minutes
+  const timeInMinutes = Math.round(totalTime / 60);
+  
+  // Comprehensive focus area mapping based on exercise types
+  const focusAreas = {
+    // Upper Body Exercises
+    'Push-ups': 'Upper Body Strength',
+    'Shoulder Press': 'Upper Body Strength',
+    'Shoulder Taps Plank': 'Upper Body Strength',
+    
+    // Lower Body Exercises
+    'Squats': 'Lower Body Strength',
+    'Air Squat': 'Lower Body Strength',
+    'Side Lunge': 'Lower Body Strength',
+    'Lunge': 'Lower Body Strength',
+    'Overhead Squat': 'Lower Body Strength',
+    
+    // Core & Full Body Strength
+    'Plank': 'core',
+    'High Plank': 'core',
+    'Side Plank': 'core',
+    'Tuck Hold': 'core',
+    'High Plank Hold': 'core',
+    'Side Plank': 'core',
+    'Plank Shoulder Taps': 'Full Body Strength',
+    'Oblique Crunches': 'Core Strength',
+    'Crunches': 'Core Strength',
+    
+    // Cardio Exercises
+    'Jumping Jacks': 'Cardio ',
+    'High Knees': 'Cardio ',
+    'Skater Hops': 'Cardio ',
+    'Jumps': 'Cardio ',
+    'Ski Jumps': 'Cardio ',
+    'Push-up Hold': 'Cardio ',
+    
+    // Mobility & Flexibility
+    'Hamstring mobility': 'Flexibility',
+    'Standing hamstring mobility': 'Flexibility',
+    'Side Bend Left': 'Flexibility',
+    'Side Bend Right': 'Flexibility',
+    'Standing Knee Raise Left': 'Flexibility',
+    'Standing Knee Raise Right': 'Flexibility',
+    'Jefferson curl': 'Flexibility',
+    'Standing Hamstring Mobility': 'Flexibility',
+    'Side Bend': 'Flexibility',
+    'Standing Knee Raise': 'Flexibility',
+    
+    // Balance & Stability
+    'Glutes Bridge': 'Balance & Stability',
+    'Glutes Bridge Hold': 'Balance & Stability',
+    'Reverse Sit to Table Top': 'Balance & Stability'
+  };
+
+  // Get focus areas for all exercises in this plan
+  const exerciseFocusAreas = plan.exercises.map((exercise: any) => 
+    focusAreas[exercise.name as keyof typeof focusAreas] || 'Full Body'
+  );
+  
+  // Count focus areas to determine the primary focus
+  const focusAreaCounts = exerciseFocusAreas.reduce((acc: any, area: string) => {
+    acc[area] = (acc[area] || 0) + 1;
+    return acc;
+  }, {});
+  
+  // Determine primary focus area
+  let primaryFocusArea = 'Full Body';
+  
+  if (Object.keys(focusAreaCounts).length > 0) {
+    // If there's a clear majority, use that
+    const maxCount = Math.max(...Object.values(focusAreaCounts) as number[]);
+    const dominantAreas = Object.keys(focusAreaCounts).filter(area => 
+      focusAreaCounts[area] === maxCount
+    );
+    
+    if (dominantAreas.length === 1) {
+      primaryFocusArea = dominantAreas[0];
+    } else if (dominantAreas.length > 1) {
+      // If multiple areas are tied, create a combined focus area
+      if (dominantAreas.includes('Cardio Fitness') && dominantAreas.includes('Upper Body Strength')) {
+        primaryFocusArea = 'Cardio & Strength';
+      } else if (dominantAreas.includes('Lower Body Strength') && dominantAreas.includes('Upper Body Strength')) {
+        primaryFocusArea = 'Full Body Strength';
+      } else if (dominantAreas.includes('Mobility & Flexibility') && dominantAreas.includes('Core Strength')) {
+        primaryFocusArea = 'Mobility & Core';
+      } else {
+        primaryFocusArea = 'Full Body';
+      }
+    }
+  }
+
+  return {
+    level: selectedLevel.charAt(0).toUpperCase() + selectedLevel.slice(1),
+    time: `${timeInMinutes} mins`,
+    focusArea: primaryFocusArea
+  };
+};
 
 // Define navigation type
 type RootStackParamList = {
@@ -751,8 +865,8 @@ useEffect(() => {
       return { strengths, improvements };
     }
 
-    // Analyze each exercise
-    data.exercises.forEach(exercise => {
+      // Analyze each exercise
+  data.exercises.forEach((exercise: any) => {
       const exerciseName = exercise.pretty_name || exercise.exercise_id || 'Unknown Exercise';
       const score = exercise.total_score || 0;
       const repsPerfect = exercise.reps_performed_perfect || 0;
@@ -808,7 +922,7 @@ useFocusEffect(
         const updatedCredits = response?.data?.data?.credits ?? 0;
         setCreditScore(updatedCredits);
         console.log('🎯 Credits fetched on screen focus:', updatedCredits);
-      } catch (err) {
+      } catch (err: any) {
         console.error('❌ Failed to fetch credits:', err.response?.data || err.message);
       } finally {
         setCreditLoading(false);
@@ -822,7 +936,7 @@ useFocusEffect(
 
   //=================================
 
-  const handleEvent = async (summary) => {
+  const handleEvent = async (summary: any) => {
   if (!isFocused) return;
 
   try {
@@ -921,29 +1035,38 @@ useFocusEffect(
         if (performed.length > 0) addPerformedExercises(performed);
       }
     } catch (e) {
-      console.error("❌ JSON parsing error:", e);
+      if (e instanceof Error) {
+        console.error("❌ JSON parsing error:", e.message);
+      } else {
+        console.error("❌ JSON parsing error:", e);
+      }
       setParsedSummaryData(null);
     }
 
     setModalVisible(true);
   } catch (e) {
-    console.error('❌ Error handling event:', e);
-    Alert.alert('Error', 'Failed to process assessment results.');
+    if (e instanceof Error) {
+      console.error('❌ Error handling event:', e.message);
+      Alert.alert('Error', 'Failed to process assessment results.');
+    } else {
+      console.error('❌ Error handling event:', e);
+      Alert.alert('Error', 'Failed to process assessment results.');
+    }
   }
 };
 
 
 
 
-  const onDuration = (index) => {
+  const onDuration = (index: number) => {
     setDuration(index === 0 ? SMWorkoutLibrary.WorkoutDuration.Long : SMWorkoutLibrary.WorkoutDuration.Short);
   };
 
-  const onLanguage = (index) => {
+  const onLanguage = (index: number) => {
     setLanguage(index === 0 ? SMWorkoutLibrary.Language.Hebrew : SMWorkoutLibrary.Language.English);
   };
 
-  const onBodyZone = (index) => {
+  const onBodyZone = (index: number) => {
     setBodyZone(
       index === 0 ? SMWorkoutLibrary.BodyZone.UpperBody :
       index === 1 ? SMWorkoutLibrary.BodyZone.LowerBody :
@@ -951,7 +1074,7 @@ useFocusEffect(
     );
   };
 
-  const onDifficulty = (index) => {
+  const onDifficulty = (index: number) => {
     setDifficulty(
       index === 0 ? SMWorkoutLibrary.WorkoutDifficulty.LowDifficulty :
       index === 1 ? SMWorkoutLibrary.WorkoutDifficulty.MidDifficulty :
@@ -2828,17 +2951,17 @@ useFocusEffect(
                     <Text style={{ color: isNightMode ? '#fff' : '#111', fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>{selectedPlan.name}</Text>
                     <View style={{ flexDirection: 'row', marginTop: 8, marginBottom: 16, justifyContent: 'center', alignItems: 'center' }}>
                       <View style={{ alignItems: 'center' }}>
-                        <Text style={{ color: isNightMode ? '#fff' : '#111', fontWeight: 'bold', fontSize: 16 }}>Beginner</Text>
+                        <Text style={{ color: isNightMode ? '#fff' : '#111', fontWeight: 'bold', fontSize: 16 }}>{calculateWorkoutDetails(selectedPlan, selectedLevel).level}</Text>
                         <Text style={{ color: isNightMode ? '#aaa' : '#888', fontSize: 13 }}>Level</Text>
-    </View>
+                      </View>
                       <Text style={{ color: isNightMode ? '#aaa' : '#888', fontSize: 18, marginHorizontal: 28, marginTop: 2 }}>|</Text>
                       <View style={{ alignItems: 'center' }}>
-                        <Text style={{ color: isNightMode ? '#fff' : '#111', fontWeight: 'bold', fontSize: 16 }}>18 mins</Text>
+                        <Text style={{ color: isNightMode ? '#fff' : '#111', fontWeight: 'bold', fontSize: 16 }}>{calculateWorkoutDetails(selectedPlan, selectedLevel).time}</Text>
                         <Text style={{ color: isNightMode ? '#aaa' : '#888', fontSize: 13 }}>Time</Text>
                       </View>
                       <Text style={{ color: isNightMode ? '#aaa' : '#888', fontSize: 18, marginHorizontal: 28, marginTop: 2 }}>|</Text>
                       <View style={{ alignItems: 'center' }}>
-                        <Text style={{ color: isNightMode ? '#fff' : '#111', fontWeight: 'bold', fontSize: 16 }}>Abs</Text>
+                        <Text style={{ color: isNightMode ? '#fff' : '#111', fontWeight: 'bold', fontSize: 16 }}>{calculateWorkoutDetails(selectedPlan, selectedLevel).focusArea}</Text>
                         <Text style={{ color: isNightMode ? '#aaa' : '#888', fontSize: 13 }}>Focus Area</Text>
                       </View>
                     </View>
