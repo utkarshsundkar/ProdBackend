@@ -16,13 +16,16 @@ import HeightScreen from '../screens/credentialsPages/HeightScreen';
 import WeightScreen from '../screens/credentialsPages/WeightScreen';
 import ActivityLevelScreen from '../screens/credentialsPages/ActivityLevelScreen';
 import ExtraData from '../screens/credentialsPages/ExtraData.tsx';
+import ProfileScreen from '../screens/ProfileScreen';
 import AuthContext from '../context/AuthContext';
+import { useNightMode } from '../context/NightModeContext';
 import MainTabs from '../MainTabs.tsx'
 
 const Stack = createStackNavigator();
 
 const AppNavigation = () => {
   const {user, loading} = useContext(AuthContext);
+  const { isNightMode, setIsNightMode } = useNightMode();
 
   if (loading) {
     // While checking token, show splash
@@ -57,6 +60,10 @@ const AppNavigation = () => {
         <Stack.Screen name="NewPassword" component={NewPassword} />
         {/* Main app */}
         <Stack.Screen name="Home" component={MainTabs} />
+        <Stack.Screen 
+          name="Profile" 
+          children={() => <ProfileScreen isNightMode={isNightMode} setIsNightMode={setIsNightMode} />}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

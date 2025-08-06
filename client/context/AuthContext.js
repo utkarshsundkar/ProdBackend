@@ -79,9 +79,14 @@ export const AuthProvider = ({children}) => {
         password,
       });
       console.log('Register response:', res.data);
-      const user = res.data.data;
-      if (!user) return false;
-      // setUser(user);
+      const {accessToken, user} = res.data.data || {};
+      if (!accessToken || !user) return false;
+      
+      // Set the user data in context and store the token
+      await AsyncStorage.setItem('accessToken', accessToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      setUser(user);
+      
       return res;
     } catch (err) {
       console.error('Register error:', err);

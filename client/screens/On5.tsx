@@ -40,7 +40,7 @@ export default function On5() {
         </Svg>
         {/* Focus Mode Title */}
         <Text style={styles.focusMode}>Focus Mode</Text>
-        {/* 3D Pushup Figure (replace with your asset if available) */}
+        {/* 3D Pushup Figure - Centered in the solar circle */}
         <View style={styles.figureWrap}>
           <Image source={require('../assets/Focus.png')} style={styles.figureImg} resizeMode="contain" />
         </View>
@@ -62,46 +62,59 @@ const styles = StyleSheet.create({
   dotDecoration: {
     position: 'absolute',
     backgroundColor: '#fff',
-    zIndex: 0,
+    zIndex: 1, // Lower z-index so dots appear behind text
   },
   focusMode: {
     color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: Math.max(width * 0.07, 28),
+    // fontWeight: 'bold',
     textAlign: 'center',
-    marginTop: 60,
+    marginTop: height * 0.075,
     letterSpacing: 1.5,
+    zIndex: 20,
+    fontFamily: 'Lexend',
   },
   figureWrap: {
-    width: width,
+    position: 'absolute',
+    top: height * 0.32 - height * 0.25, // Center of circles (32%) minus half the figure height (25%)
+    left: width / 2 - width * 0.3, // Center horizontally, figure width is 60% of screen width (matches largest ring diameter)
+    width: width * 0.6, // 60% of screen width (matches largest ring diameter)
+    height: height * 0.5, // 50% of screen height
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 0,
+    justifyContent: 'center',
+    zIndex: 10,
   },
   figureImg: {
-    width: 280,
-    height: 240,
+    width: '100%',
+    height: '100%',
   },
   textBlock: {
     width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    marginTop: 32,
-    marginBottom: 32,
+    paddingHorizontal: width * 0.06, // 6% of screen width
+    marginTop: height * 0.04, // 4% of screen height
+    marginBottom: height * 0.04, // 4% of screen height
+    position: 'absolute',
+    bottom: height * 0.25, // Increased from 15% to 25% to move text higher and avoid login button
+    zIndex: 30, // Highest z-index to ensure text appears above everything
   },
   mainTitle: {
     color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: Math.max(width * 0.06, 24),
+    // fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 10,
-    marginTop: 10,
+    marginBottom: height * 0.012,
+    marginTop: height * 0.012,
+    zIndex: 30,
+    fontFamily: 'Lexend',
   },
   subText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: Math.max(width * 0.035, 14),
     textAlign: 'center',
     opacity: 0.9,
     marginTop: 0,
+    zIndex: 30,
+    fontFamily: 'Lexend',
   },
 }); 

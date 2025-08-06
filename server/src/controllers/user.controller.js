@@ -75,11 +75,33 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Something went wrong while registering the user");
   }
 
+  // Generate tokens for the newly registered user
+  const { accessToken, refreshToken } = await generateAccessandRefreshTokens(
+    user._id
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
   console.log('createdUser', createdUser);
 
   return res
     .status(201)
-    .json(new ApiResponse(200, createdUser, "User registered Successfully"));
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          user: createdUser,
+          accessToken,
+          refreshToken,
+        },
+        "User registered Successfully"
+      )
+    );
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -236,9 +258,12 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 
 
 const getCurrentUser = asyncHandler(async (req, res) => {
+  // Populate the premium data
+  const user = await User.findById(req.user._id).populate('premium');
+  
   return res
     .status(200)
-    .json(new ApiResponse(200, { user: req.user }, "User fetched successfully"));
+    .json(new ApiResponse(200, { user }, "User fetched successfully"));
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {

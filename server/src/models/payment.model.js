@@ -13,7 +13,7 @@ const premiumSchema = new mongoose.Schema(
     },
     planType: {
       type: String,
-      enum: ["monthly", "yearly"],
+      enum: ["starter", "monthly", "yearly"],
       required: true,
     },
     startDate: {
@@ -27,6 +27,27 @@ const premiumSchema = new mongoose.Schema(
     lastPayment: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Payment",
+    },
+    // Transaction details
+    razorpayOrderId: {
+      type: String,
+    },
+    razorpayPaymentId: {
+      type: String,
+    },
+    razorpaySignature: {
+      type: String,
+    },
+    paymentMethod: {
+      type: String,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "success", "failed"],
+      default: "pending",
+    },
+    paymentDate: {
+      type: Date,
     },
   },
   {

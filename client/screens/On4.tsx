@@ -98,8 +98,8 @@ const styles = StyleSheet.create({
   legsLabel: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
     marginBottom: 8,
+    fontFamily: 'Lexend',
   },
   exerciseRow: {
     flexDirection: 'row',
@@ -109,12 +109,12 @@ const styles = StyleSheet.create({
   exerciseName: {
     color: '#fff',
     fontSize: 20,
-    fontWeight: 'bold',
     backgroundColor: '#fff2',
     borderRadius: 16,
     paddingVertical: 6,
     paddingHorizontal: 18,
     overflow: 'hidden',
+    fontFamily: 'Lexend',
   },
   repsPill: {
     backgroundColor: '#fff',
@@ -125,8 +125,8 @@ const styles = StyleSheet.create({
   },
   repsText: {
     color: '#6B5EE4',
-    fontWeight: 'bold',
     fontSize: 14,
+    fontFamily: 'Lexend',
   },
   avatarWrap: {
     position: 'absolute',
@@ -151,10 +151,10 @@ const styles = StyleSheet.create({
   title: {
     color: '#fff',
     fontSize: 28,
-    fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 10,
     lineHeight: 34,
+    fontFamily: 'Lexend',
   },
   subtitle: {
     color: '#e0e0e0',
@@ -162,5 +162,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 0,
     marginTop: 4,
+    fontFamily: 'Lexend',
   },
 });
