@@ -182,8 +182,8 @@ const App = ({ inFocusMode, setInFocusMode }) => {
           const userData = await response.json();
           const user = userData.data.user;
           
-          console.log('🔍 User premium status:', user.isPremium);
-          console.log('🔍 User premium data:', user.premium);
+          // console.log('🔍 User premium status:', user.isPremium);
+          // console.log('🔍 User premium data:', user.premium);
           
           if (user.isPremium && user.premium) {
             // Check if subscription is still valid
@@ -192,38 +192,38 @@ const App = ({ inFocusMode, setInFocusMode }) => {
             
             if (expiryDate > now) {
               // User has active premium, proceed with Focus Mode
-              console.log('✅ User has active premium subscription');
+              // console.log('✅ User has active premium subscription');
               try {
                 const response = await axios.post(`${BASE_URL}/focus/start`, {
                   userId
                 });
 
                 const session = response?.data?.data;
-                console.log('🎯 Focus session started:', session);
+                // console.log('🎯 Focus session started:', session);
 
                 // Update local state to indicate you're now in focus mode
                 setInFocusMode(true);
               } catch (err) {
-                console.error('❌ Failed to start focus session:', err.response?.data || err.message);
+                // console.error('❌ Failed to start focus session:', err.response?.data || err.message);
               }
               return;
             } else {
-              console.log('❌ Premium subscription expired');
+              // console.log('❌ Premium subscription expired');
               setShowPaymentModal(true);
               return;
             }
           } else {
-            console.log('❌ User is not premium');
+            // console.log('❌ User is not premium');
             setShowPaymentModal(true);
             return;
           }
         } else {
-          console.log('❌ Failed to get user data');
+          // console.log('❌ Failed to get user data');
           setShowPaymentModal(true);
           return;
         }
       } catch (error) {
-        console.error('❌ Error checking premium status:', error);
+        // console.error('❌ Error checking premium status:', error);
         setShowPaymentModal(true);
         return;
       }
@@ -2241,7 +2241,9 @@ const handleEvent = async (summary) => {
         console.log('Focus mode exited forcefully');
       }
     } catch (err) {
-      console.error('❌ Failed to end focus session:', err.response?.data || err.message);
+      // Handle focus session end failure gracefully - don't show error to user
+      console.log('ℹ️ Focus session end failed (this may be expected for new users):', err.response?.status);
+      setInFocusMode(false);
     }
   }}
           >

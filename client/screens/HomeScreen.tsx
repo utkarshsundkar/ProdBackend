@@ -1957,13 +1957,13 @@ useFocusEffect(
       sections: [
         {
           title: 'Warm-up',
-          exercises: ['Jumping Jacks', 'Glutes Bridge', 'Standing Knee Raise'],
+          exercises: ['Jumping Jacks', 'Glutes Bridge', 'Standing Knee Raise Left'],
           color: '#FF6B35',
           rest: '20 seconds between exercises',
         },
         {
           title: 'Workout',
-          exercises: ['Air Squat', 'Side Lunge', 'Lunge', 'Overhead Squat'],
+          exercises: ['Squats', 'Side Lunge', 'Lunge', 'Overhead Squat'],
           color: '#FF8C42',
           rest: '40 seconds between sets',
         },
@@ -1975,7 +1975,7 @@ useFocusEffect(
         },
         {
           title: 'Cool-down',
-          exercises: ['Standing Hamstring Mobility', 'Jefferson Curl'],
+          exercises: ['Standing hamstring mobility', 'Jefferson curl'],
           color: '#FFB74D',
           rest: 'Hold each stretch for 30 seconds',
         },
@@ -1987,13 +1987,13 @@ useFocusEffect(
       sections: [
         {
           title: 'Warm-up',
-          exercises: ['Shoulder Taps Plank', 'Standing Knee Raise', 'High Knees'],
+          exercises: ['Shoulder Taps Plank', 'Standing Knee Raise Left', 'High Knees'],
           color: '#FF6B35',
           rest: '20 seconds between exercises',
         },
         {
           title: 'Workout',
-          exercises: ['Push-up', 'Shoulder Press', 'High Plank Hold', 'Side Plank'],
+          exercises: ['Push-ups', 'Shoulder Press', 'High Plank', 'Side Plank'],
           color: '#FF8C42',
           rest: '40 seconds between sets',
         },
@@ -2005,7 +2005,7 @@ useFocusEffect(
         },
         {
           title: 'Cool-down',
-          exercises: ['Side Bend', 'Hamstring Mobility'],
+          exercises: ['Side Bend Left', 'Hamstring mobility'],
           color: '#FFB74D',
           rest: 'Hold each stretch for 30 seconds',
         },
@@ -2017,7 +2017,7 @@ useFocusEffect(
       sections: [
         {
           title: 'Warm-up',
-          exercises: ['Tuck Hold', 'Side Bends', 'Ski Jumps'],
+          exercises: ['Tuck Hold', 'Side Bend Left', 'Ski Jumps'],
           color: '#FF6B35',
           rest: '20 seconds between exercises',
         },
@@ -2035,7 +2035,7 @@ useFocusEffect(
         },
         {
           title: 'Cool-down',
-          exercises: ['Reverse Sit to Table Top', 'Jefferson Curl'],
+          exercises: ['Reverse Sit to Table Top', 'Jefferson curl'],
           color: '#FFB74D',
           rest: 'Hold each stretch for 30 seconds',
         },
@@ -2047,7 +2047,7 @@ useFocusEffect(
       sections: [
         {
           title: 'Warm-up',
-          exercises: ['Jumping Jacks', 'Standing Hamstring Mobility', 'Side Bend'],
+          exercises: ['Jumping Jacks', 'Standing hamstring mobility', 'Side Bend Left'],
           color: '#FF6B35',
           rest: '20 seconds between exercises',
         },
@@ -2065,7 +2065,7 @@ useFocusEffect(
         },
         {
           title: 'Cool-down',
-          exercises: ['Hamstring Mobility', 'Jefferson Curl'],
+          exercises: ['Hamstring mobility', 'Jefferson curl'],
           color: '#FFB74D',
           rest: 'Hold each stretch for 30 seconds',
         },
@@ -2083,7 +2083,7 @@ useFocusEffect(
         },
         {
           title: 'Workout',
-          exercises: ['Air Squat', 'Push-up', 'Crunches', 'Shoulder Taps', 'Oblique Crunches'],
+          exercises: ['Squats', 'Push-ups', 'Crunches', 'Shoulder Taps Plank', 'Oblique Crunches'],
           color: '#FF8C42',
           rest: '40 seconds between sets',
         },
@@ -2095,7 +2095,7 @@ useFocusEffect(
         },
         {
           title: 'Cool-down',
-          exercises: ['Side Bend', 'Standing Hamstring Mobility'],
+          exercises: ['Side Bend Left', 'Standing hamstring mobility'],
           color: '#FFB74D',
           rest: 'Hold each stretch for 30 seconds',
         },
@@ -2182,8 +2182,8 @@ useFocusEffect(
           const userData = await response.json();
           const user = userData.data.user;
           
-          console.log('🔍 User premium status:', user.isPremium);
-          console.log('🔍 User premium data:', user.premium);
+          // console.log('🔍 User premium status:', user.isPremium);
+          // console.log('🔍 User premium data:', user.premium);
           
           if (user.isPremium && user.premium) {
             // Check if subscription is still valid
@@ -2277,6 +2277,203 @@ useFocusEffect(
     };
 
     checkPremiumStatus();
+  };
+
+  // Add this inside the App component:
+  const handleStartSection = async (section: any) => {
+    if (!section || !section.exercises || section.exercises.length === 0) {
+      showAlert('No Exercises', 'This section has no exercises.');
+      return;
+    }
+    try {
+      const exercises = section.exercises.map((exerciseName: string) => {
+        let detectorId;
+        let scoringType;
+        let targetReps: number | null = null;
+        let targetTime: number | null = null;
+        let uiElements = [SMWorkoutLibrary.UIElement.RepsCounter, SMWorkoutLibrary.UIElement.Timer];
+        switch (exerciseName) {
+          case 'High Plank':
+            detectorId = 'PlankHighStatic';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 30;
+            uiElements = [SMWorkoutLibrary.UIElement.Timer];
+            break;
+          case 'Squats':
+            detectorId = 'SquatRegular';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 10;
+            break;
+          case 'Push-ups':
+            detectorId = 'PushupRegular';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 12;
+            break;
+          case 'Lunge':
+            detectorId = 'LungeFront';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 12;
+            break;
+          case 'Overhead Squat':
+            detectorId = 'SquatRegularOverheadStatic';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 20;
+            uiElements = [SMWorkoutLibrary.UIElement.Timer];
+            break;
+          case 'Standing Knee Raise Left':
+            detectorId = 'StandingKneeRaiseLeft';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 15;
+            uiElements = [SMWorkoutLibrary.UIElement.GaugeOfMotion, SMWorkoutLibrary.UIElement.Timer];
+            break;
+          case 'Standing hamstring mobility':
+            detectorId = 'StandingHamstringMobility';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 20;
+            uiElements = [SMWorkoutLibrary.UIElement.GaugeOfMotion, SMWorkoutLibrary.UIElement.Timer];
+            break;
+          case 'Hamstring mobility':
+            detectorId = 'HamstringMobility';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 20;
+            uiElements = [SMWorkoutLibrary.UIElement.GaugeOfMotion, SMWorkoutLibrary.UIElement.Timer];
+            break;
+          case 'Jefferson curl':
+            detectorId = 'JeffersonCurlRight';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 20;
+            uiElements = [SMWorkoutLibrary.UIElement.GaugeOfMotion, SMWorkoutLibrary.UIElement.Timer];
+            break;
+          case 'Shoulder Taps Plank':
+            detectorId = 'PlankHighShoulderTaps';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 20;
+            break;
+          case 'High Knees':
+            detectorId = 'HighKnees';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 20;
+            break;
+          case 'Jumping Jacks':
+            detectorId = 'JumpingJacks';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 20;
+            break;
+          case 'Tuck Hold':
+            detectorId = 'TuckHold';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 30;
+            uiElements = [SMWorkoutLibrary.UIElement.Timer];
+            break;
+          case 'Skater Hops':
+            detectorId = 'SkaterHops';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 20;
+            break;
+          case 'Ski Jumps':
+            detectorId = 'SkiJumps';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 20;
+            break;
+          case 'Side Plank':
+            detectorId = 'PlankSideLowStatic';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 30;
+            uiElements = [SMWorkoutLibrary.UIElement.Timer];
+            break;
+          case 'Crunches':
+            detectorId = 'Crunches';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 15;
+            break;
+          case 'Oblique Crunches':
+            detectorId = 'StandingObliqueCrunches';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 20;
+            break;
+          case 'Plank Shoulder Taps':
+            detectorId = 'PlankHighShoulderTaps';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 20;
+            break;
+          case 'Reverse Sit to Table Top':
+            detectorId = 'ReverseSitToTableTop';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 12;
+            break;
+          case 'Glutes Bridge':
+            detectorId = 'GlutesBridge';
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 12;
+            break;
+          case 'Glutes Bridge Hold':
+            detectorId = 'GlutesBridge';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 30;
+            uiElements = [SMWorkoutLibrary.UIElement.Timer];
+            break;
+          case 'Push-up Hold':
+            detectorId = 'PushupRegular';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 30;
+            uiElements = [SMWorkoutLibrary.UIElement.Timer];
+            break;
+          case 'Side Bend Left':
+            detectorId = 'StandingSideBendLeft';
+            scoringType = SMWorkoutLibrary.ScoringType.Time;
+            targetTime = 30;
+            uiElements = [SMWorkoutLibrary.UIElement.Timer];
+            break;
+          default:
+            detectorId = exerciseName.replace(/\s+/g, '');
+            scoringType = SMWorkoutLibrary.ScoringType.Reps;
+            targetReps = 10;
+        }
+        return new SMWorkoutLibrary.SMAssessmentExercise(
+          detectorId,
+          35,
+          detectorId,
+          null,
+          uiElements,
+          detectorId,
+          '',
+          new SMWorkoutLibrary.SMScoringParams(
+            scoringType,
+            0.3,
+            targetTime,
+            targetReps,
+            null,
+            null
+          ),
+          '',
+          exerciseName,
+          scoringType === SMWorkoutLibrary.ScoringType.Time ? 'Hold the position' : 'Complete the exercise',
+          scoringType === SMWorkoutLibrary.ScoringType.Time ? 'Time' : 'Reps',
+          scoringType === SMWorkoutLibrary.ScoringType.Time ? 'seconds held' : 'clean reps'
+        );
+      });
+      const customWorkout = new SMWorkoutLibrary.SMWorkout(
+        'todays-plan-section',
+        section.title,
+        null,
+        null,
+        exercises,
+        null,
+        null,
+        null
+      );
+      const result = await startCustomAssessment(customWorkout, null, true, false);
+      setSummaryMessage(result.summary);
+      try {
+        const parsed = JSON.parse(result.summary);
+        setParsedSummaryData(parsed);
+      } catch (e) {
+        setParsedSummaryData(null);
+      }
+      setModalVisible(true);
+    } catch (e: any) {
+      showAlert('Workout Error', e.message || 'Failed to start section workout.');
+    }
   };
 
   return (
